@@ -945,7 +945,7 @@ do
     repair = {1, 0.45, 0.45}, flight = {0.38, 0.62, 1}, training = {0.72, 0.52, 1}, ahSpend = {0.95, 0.62, 0.18},
     buy = {0.22, 0.78, 0.58}, otherOut = {0.62, 0.64, 0.7}, net = {1, 0.82, 0.29},
   }
-  local GW, X0, CW, CH, TOPY = 580, 64, 330, 200, -112
+  local GW, X0, CW, CH, TOPY = 620, 64, 330, 200, -112  -- bredt nok til forklaringen med store beloeb
   local g = CreateFrame("Frame", "GoldETAGraph", UIParent)
   g:SetSize(GW, 362); g:SetPoint("CENTER"); g:SetFrameStrata("DIALOG"); g:Hide()
   skin(g, "Wide", 1040, 2048)

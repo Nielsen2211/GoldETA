@@ -4,6 +4,8 @@
 
 Part of the ETA family with [LevelETA](https://github.com/Nielsen2211/LevelETA). Each works on its own, and together they share one window.
 
+![GoldETA window](screenshots/goldeta-window.png)
+
 - **Gold per hour**, measured over your last 2 hours of play, plus your pace for the last 15 minutes
 - **When your goal is ready**, as a real date like *Tuesday 21:00*, using your play times
 - **Farm runs**: start and stop a recording and see which spots pay the most
@@ -30,6 +32,8 @@ Under the rows you can show three sections. Turn each on or off in the settings,
 - **Best farm spots**: gold per hour for every zone where you have farmed at least 10 minutes
 - **Farm log**: your farms sorted by gold per hour, best at the top
 
+![GoldETA details](screenshots/goldeta-details.png)
+
 ## Gold history
 
 Click **Graph** at the top of the window (or `/geta graph`) to open your gold history:
@@ -40,6 +44,8 @@ Click **Graph** at the top of the window (or `/geta graph`) to open your gold hi
 - Hover a day to see every source for that day
 
 The history starts when you install this version and fills up as you play.
+
+![GoldETA gold history](screenshots/goldeta-graph.png)
 
 ## Farm runs
 
@@ -71,6 +77,8 @@ When [LevelETA](https://github.com/Nielsen2211/LevelETA) is installed:
 
 You can turn this off in GoldETA's settings with **Show in LevelETA's window**.
 
+![GoldETA in LevelETA's window](screenshots/goldeta-in-leveleta.png)
+
 ## With auxForever or Auctionator
 
 If auxForever is installed, GoldETA uses its usual AH price for item values (the same price aux uses to find deals). If not, it uses Auctionator's prices. Without either, vendor prices are used. An item is never valued below its vendor price.
@@ -81,6 +89,8 @@ If auxForever is installed, GoldETA uses its usual AH price for item values (the
 - **Right click**: settings
 - **Shift click**: start or stop a farm run
 - **Hover**: gold per hour, when your goal is ready, and the gold on all your characters
+
+![GoldETA settings](screenshots/goldeta-settings.png)
 
 ## Commands
 
