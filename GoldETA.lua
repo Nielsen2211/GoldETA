@@ -30,7 +30,7 @@ local LOC = {
     avgAll = "Average per hour, all time", noSpots = "Farm 10 min in a zone to see it here", noRuns = "No farm runs yet",
     loot = "Looted coin", vendor = "Vendor", quest = "Quests", mail = "Mail and AH", trade = "Trade", otherIn = "Other income",
     repair = "Repairs", flight = "Flights", training = "Training", ahSpend = "Auction House", buy = "Vendor buys", otherOut = "Other spending",
-    farm = "Farm", graph = "Graph", graphTitle = "Gold history", goldOverTime = "Your gold, last 14 days", netPerDay = "Net per day",
+    farm = "Farm", graph = "Graph", graphTitle = "Gold history", income = "Income", expenses = "Expenses", netW = "Net", cumulative = "Cumulative",
     todayNet = "Today", last7 = "Last 7 days", perDay = "Per day", noHist = "Fills up as you play", nowW = "Now",
     farming = "Farming %s", paused = "Paused %s", total = "Total", coin = "Looted coin",
     itemsV = "Items, vendor value", itemsA = "Items, AH value", kills = "Kills", topLoot = "Top loot",
@@ -39,7 +39,7 @@ local LOC = {
     sessDone = "Session: %s", bestAt = "best: %s",
     settings = "Settings", tabWindow = "Window", tabGoal = "Goal", tabTime = "Play time",
     winSec = "Window", showWin = "Show window", lock = "Lock window", showMinimap = "Minimap button", size = "Size",
-    detailSec = "Details", showDetails = "Show details", fuse = "Show in LevelETA's window", countBags = "Count bag items toward goal",
+    detailSec = "Details", showDetails = "Show details", showSess = "This session", showSpots = "Best farm spots", showFarms = "Farm log", fuse = "Show in LevelETA's window", countBags = "Count bag items toward goal",
     goalSec = "Goal", goalAmount = "Goal amount", goalLevel = "Compare with level", presets = "Presets",
     pMount = "Mount", pEpic = "Epic mount", rhythm = "Play time", useRhythm = "Use my play times", wake = "Play from", bed = "Play until",
     rhythmInfo = "Uses LevelETA's play times when it is installed.",
@@ -65,7 +65,7 @@ local LOC = {
     avgAll = "Gennemsnit pr. time, i alt", noSpots = "Farm 10 min i en zone for at se den her", noRuns = "Ingen farm runs endnu",
     loot = "Looted coin", vendor = "Vendor", quest = "Quests", mail = "Mail og AH", trade = "Handel", otherIn = "Anden indtægt",
     repair = "Reparation", flight = "Flyveture", training = "Træning", ahSpend = "Auction House", buy = "Køb hos vendor", otherOut = "Andre udgifter",
-    farm = "Farm", graph = "Graf", graphTitle = "Guldhistorik", goldOverTime = "Dit guld, sidste 14 dage", netPerDay = "Netto pr. dag",
+    farm = "Farm", graph = "Graf", graphTitle = "Guldhistorik", income = "Indtægt", expenses = "Udgifter", netW = "Netto", cumulative = "Samlet",
     todayNet = "I dag", last7 = "Sidste 7 dage", perDay = "Pr. dag", noHist = "Fyldes op, mens du spiller", nowW = "Nu",
     farming = "Farmer %s", paused = "Pause %s", total = "I alt", coin = "Looted coin",
     itemsV = "Items, vendor-pris", itemsA = "Items, AH-pris", kills = "Kills", topLoot = "Bedste loot",
@@ -74,7 +74,7 @@ local LOC = {
     sessDone = "Session: %s", bestAt = "bedst: %s",
     settings = "Indstillinger", tabWindow = "Vindue", tabGoal = "Mål", tabTime = "Spilletid",
     winSec = "Vindue", showWin = "Vis vinduet", lock = "Lås vinduet", showMinimap = "Minimap-knap", size = "Størrelse",
-    detailSec = "Detaljer", showDetails = "Vis detaljer", fuse = "Vis i LevelETA's vindue", countBags = "Tæl items i tasken med",
+    detailSec = "Detaljer", showDetails = "Vis detaljer", showSess = "Denne session", showSpots = "Bedste farm spots", showFarms = "Farm-log", fuse = "Vis i LevelETA's vindue", countBags = "Tæl items i tasken med",
     goalSec = "Mål", goalAmount = "Beløb", goalLevel = "Sammenlign med level", presets = "Forslag",
     pMount = "Mount", pEpic = "Epic mount", rhythm = "Spilletid", useRhythm = "Brug mine spilletider", wake = "Spiller fra", bed = "Spiller til",
     rhythmInfo = "Bruger LevelETA's spilletider, når den er installeret.",
@@ -99,7 +99,7 @@ local defaults = {
   goalAuto = true, mountGoal = 1000000, epicGoal = 10000000,
   schedule = true, sleepStart = 23 * 60, sleepEnd = 7 * 60,
   scale = 1, lang = "en", locked = false, hidden = false, mmAngle = 225, showMinimap = true,
-  showDetails = false, fuse = true, tab = 1, scaleFollow = true,
+  showDetails = false, showSess = false, showSpots = false, showFarms = true, fuse = true, tab = 1, scaleFollow = true,
 }
 
 local INC = {"loot", "vendor", "quest", "mail", "trade", "otherIn"}
@@ -431,14 +431,6 @@ f:SetScript("OnDragStop", function(self)
 end)
 local fTitle = header(f, "|cffffffffGold|r|cffffd24aETA|r")
 
--- klik paa titlen: vis eller skjul detaljer
-local titleBtn = CreateFrame("Button", nil, f)
-titleBtn:SetPoint("TOPLEFT", 8, -8); titleBtn:SetSize(80, 26)
-titleBtn:RegisterForClicks("LeftButtonUp")
-titleBtn:SetScript("OnEnter", function(self)
-  GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine(T("expand"), 0.85, 0.87, 0.92); GameTooltip:Show()
-end)
-titleBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
 local farmBtn = pill(f, nil, 92, 20)
 farmBtn:SetPoint("TOPRIGHT", -12, -10)
@@ -683,6 +675,7 @@ end
 
 local function drawDetails(y)
   -- denne session: indtaegt og udgifter
+  if DB.showSess then
   y = row(y, {kind = "sep"}) - 4
   y = row(y, {kind = "head", title = T("sessHead"), value = ""})
   local items, mx = {}, 1
@@ -700,8 +693,10 @@ local function drawDetails(y)
     y = y - 4
     y = row(y, {kind = "small", title = T("net"), value = (net >= 0 and "+" or "") .. money(net), vc = net >= 0 and GOLD or ORANGE})
   end
+  end
 
   -- bedste farm spots
+  if DB.showSpots then
   y = row(y, {kind = "sep"}) - 4
   y = row(y, {kind = "head", title = T("spotsHead"), value = ""})
   local zl = {}
@@ -721,8 +716,10 @@ local function drawDetails(y)
         frac = z.r / zl[1].r, fc = BLUE, fa = i == 1 and 0.9 or 0.35})
     end
   end
+  end
 
-  -- farm runs
+  -- farm-log
+  if DB.showFarms then
   y = row(y, {kind = "sep"}) - 4
   y = row(y, {kind = "head", title = T("runsHead"), value = ""})
   local fl = farmList()
@@ -740,6 +737,7 @@ local function drawDetails(y)
   if DB.life.p >= 600 then
     y = y - 6
     y = row(y, {kind = "small", title = T("avgAll"), value = money(DB.life.c / DB.life.p * 3600), vc = GOLD})
+  end
   end
   return y
 end
@@ -783,7 +781,7 @@ local function refresh()
     chip2:SetText("|cff9fd0ff" .. money(bagValue()) .. "|r |cff8c94a3" .. T("inBags") .. "|r")
     y = y - 16
 
-    if DB.showDetails then y = drawDetails(y - 4) end
+    if DB.showSess or DB.showSpots or DB.showFarms then y = drawDetails(y - 4) end
     for i = rowN + 1, #rowPool do rowPool[i]:Hide() end
     if f._h ~= y then f._h = y; f:SetHeight(-y + 12) end
     f:Show()
@@ -905,45 +903,44 @@ GoldETA_ToggleFarm = function() if DB then toggleRun() end end  -- til keybind
 farmBtn:SetScript("OnClick", toggleRun)
 runStop:SetScript("OnClick", stopRun)
 runPause:SetScript("OnClick", function() if DB.run then DB.run.paused = not DB.run.paused; refresh() end end)
-titleBtn:SetScript("OnClick", function() DB.showDetails = not DB.showDetails; refresh() end)
 
--- ---------- historik og graf: dit guld over tid og netto pr. dag ----------
+-- ---------- historik og graf: indtaegt og udgifter pr. dag, fordelt paa kilder ----------
 local G = {}
 do
-  local DAYS = 14
   local function dayKey(t) return date("%Y-%m-%d", t) end
-  -- gemmer dit guld hvert 10. minut (seneste vaerdi), og guld ved dagens start og slut
-  G.track = function()
-    if not DB or not GetMoney then return end
-    local m, now = GetMoney(), time()
-    DB.hist = DB.hist or {}
+  local function today()
     DB.days = DB.days or {}
-    local h = DB.hist
-    local last = h[#h]
-    if last and now - last.t < 600 then last.m = m else h[#h + 1] = {t = now, m = m} end
-    while h[1] and h[1].t < now - (DAYS + 1) * 86400 do table.remove(h, 1) end
-    local k = dayKey(now)
+    local k = dayKey(time())
     local d = DB.days[k]
-    if not d then d = {m0 = DB.lastM or m}; DB.days[k] = d end
-    d.m1 = m
-    DB.lastM = m
+    if not d then d = {inc = {}, exp = {}}; DB.days[k] = d end
+    d.inc, d.exp = d.inc or {}, d.exp or {}
+    return d
+  end
+  -- hver guld-aendring gemmes pr. dag og kilde (samme kilder som "Denne session")
+  G.add = function(cat, delta)
+    if not DB or delta == 0 then return end
+    local d = today()
+    if delta > 0 then d.inc[cat] = (d.inc[cat] or 0) + delta
+    else d.exp[cat] = (d.exp[cat] or 0) - delta end
     if not G.pruned then
       G.pruned = true
-      local cut = dayKey(now - 30 * 86400)
+      local cut = dayKey(time() - 60 * 86400)
       for key in pairs(DB.days) do if key < cut then DB.days[key] = nil end end
     end
     if G.frame and G.frame:IsShown() then G.draw() end
   end
-  local function net(t)
-    local d = DB.days and DB.days[dayKey(t)]
-    if d and d.m1 then return d.m1 - (d.m0 or d.m1) end
-  end
+  G.track = function() end  -- (gammel snapshot-maaling, ikke brugt mere)
 
-  local GREEN, RED = {0.36, 0.85, 0.5}, {1, 0.42, 0.42}
-  local GW, CW = 440, 412
+  local COLS = {
+    loot = {0.95, 0.62, 0.18}, vendor = {0.38, 0.62, 1}, quest = {0.22, 0.78, 0.58}, mail = {0.95, 0.38, 0.28},
+    trade = {0.72, 0.52, 1}, otherIn = {0.62, 0.64, 0.7},
+    repair = {1, 0.45, 0.45}, flight = {0.38, 0.62, 1}, training = {0.72, 0.52, 1}, ahSpend = {0.95, 0.62, 0.18},
+    buy = {0.22, 0.78, 0.58}, otherOut = {0.62, 0.64, 0.7}, net = {1, 0.82, 0.29},
+  }
+  local GW, X0, CW, CH, TOPY = 580, 64, 330, 200, -112
   local g = CreateFrame("Frame", "GoldETAGraph", UIParent)
-  g:SetSize(GW, 384); g:SetPoint("CENTER"); g:SetFrameStrata("DIALOG"); g:Hide()
-  skin(g, "Panel", 520, 1024)
+  g:SetSize(GW, 362); g:SetPoint("CENTER"); g:SetFrameStrata("DIALOG"); g:Hide()
+  skin(g, "Wide", 1040, 2048)
   movable(g, function() return true end)
   g:SetScript("OnDragStop", g.StopMovingOrSizing)
   tinsert(UISpecialFrames, "GoldETAGraph")
@@ -956,168 +953,211 @@ do
   cx:SetScript("OnClick", function() g:Hide() end)
   G.frame = g
 
-  -- tre tal oeverst: i dag, sidste 7 dage, pr. dag
-  local stat = {}
-  for i, key in ipairs({"todayNet", "last7", "perDay"}) do
-    local l = fs(g, F_SEMI, 11); l:SetPoint("TOPLEFT", 14 + (i - 1) * 142, -48); l:SetTextColor(0.55, 0.58, 0.64); label(l, key)
-    local v = fs(g, F_BOLD, 15); v:SetPoint("TOPLEFT", 14 + (i - 1) * 142, -64)
-    stat[i] = v
+  -- knapper: indtaegt / udgifter / netto, 7 / 14 / 30 dage, akkumuleret
+  local mode, days, cum = "inc", 7, false
+  local modeB, rangeB = {}, {}
+  local function paintAll()
+    for k, b in pairs(modeB) do if k == mode then b:paint(1, 0.82, 0.4) else b:paint(0.55, 0.58, 0.64) end end
+    for k, b in pairs(rangeB) do if k == days then b:paint(1, 0.82, 0.4) else b:paint(0.55, 0.58, 0.64) end end
   end
+  local x = 14
+  for _, m in ipairs({{"inc", "income"}, {"exp", "expenses"}, {"net", "netW"}}) do
+    local b = pill(g, nil, 84, 22); b:SetPoint("TOPLEFT", x, -48); label(b.text, m[2]); x = x + 90
+    b:SetScript("OnClick", function() mode = m[1]; paintAll(); G.draw() end)
+    modeB[m[1]] = b
+  end
+  x = x + 14
+  for _, n in ipairs({7, 14, 30}) do
+    local b = pill(g, nil, 48, 22); b:SetPoint("TOPLEFT", x, -48); b.text:SetText(n .. (n == 7 and "d" or "d")); x = x + 54
+    b:SetScript("OnClick", function() days = n; paintAll(); G.draw() end)
+    rangeB[n] = b
+  end
+  x = x + 14
+  local cumB = pill(g, nil, 104, 22); cumB:SetPoint("TOPLEFT", x, -48); label(cumB.text, "cumulative")
+  cumB:SetScript("OnClick", function() cum = not cum; if cum then cumB:paint(1, 0.82, 0.4) else cumB:paint(0.55, 0.58, 0.64) end; G.draw() end)
+  cumB:paint(0.55, 0.58, 0.64)
+  paintAll()
 
-  -- graf 1: dit guld over tid
-  local h1 = fs(g, F_BOLD, 11); h1:SetPoint("TOPLEFT", 14, -96); h1:SetTextColor(1, 0.82, 0.4); label(h1, "goldOverTime")
-  local CH1 = 100
-  local c1 = CreateFrame("Frame", nil, g); c1:SetPoint("TOPLEFT", 14, -114); c1:SetSize(CW, CH1)
-  local bg1 = c1:CreateTexture(nil, "BACKGROUND"); bg1:SetAllPoints(); bg1:SetColorTexture(1, 1, 1, 0.03)
+  -- selve grafen
+  local c = CreateFrame("Frame", nil, g); c:SetPoint("TOPLEFT", X0, TOPY); c:SetSize(CW, CH)
   local grid, gridT = {}, {}
-  for i = 1, 3 do
-    local t = c1:CreateTexture(nil, "BORDER"); t:SetHeight(1); t:SetColorTexture(1, 1, 1, 0.06)
-    t:SetPoint("LEFT", c1, "BOTTOMLEFT", 0, CH1 * i / 3); t:SetPoint("RIGHT", c1, "BOTTOMRIGHT", 0, CH1 * i / 3)
-    local tx = fs(c1, F_SEMI, 9); tx:SetPoint("TOPLEFT", c1, "BOTTOMLEFT", 3, CH1 * i / 3 - 2); tx:SetTextColor(0.45, 0.48, 0.54)  -- under stregen, inde i grafen
+  for i = 0, 4 do
+    local t = c:CreateTexture(nil, "BORDER"); t:SetHeight(1); t:SetColorTexture(1, 1, 1, i == 0 and 0.14 or 0.06)
+    local tx = fs(g, F_SEMI, 10); tx:SetTextColor(0.55, 0.58, 0.64); tx:SetJustifyH("RIGHT")
     grid[i], gridT[i] = t, tx
   end
-  local goalLn = c1:CreateTexture(nil, "ARTWORK"); goalLn:SetHeight(1); goalLn:SetColorTexture(1, 0.82, 0.29, 0.8)
-  local goalT = fs(c1, F_BOLD, 10); goalT:SetTextColor(1, 0.82, 0.29)
-  local empty1 = fs(c1, F_SEMI, 11); empty1:SetPoint("CENTER"); empty1:SetTextColor(0.55, 0.58, 0.64); label(empty1, "noHist")
   local xl = {}
-  for i = 1, 3 do
-    local t = fs(g, F_SEMI, 9); t:SetTextColor(0.45, 0.48, 0.54); xl[i] = t
+  for i = 1, 3 do local t = fs(g, F_SEMI, 10); t:SetTextColor(0.55, 0.58, 0.64); xl[i] = t end
+  xl[1]:SetPoint("TOPLEFT", c, "BOTTOMLEFT", 0, -6)
+  xl[2]:SetPoint("TOP", c, "BOTTOM", 0, -6)
+  xl[3]:SetPoint("TOPRIGHT", c, "BOTTOMRIGHT", 0, -6)
+  local empty = fs(c, F_SEMI, 12); empty:SetPoint("CENTER"); empty:SetTextColor(0.55, 0.58, 0.64); label(empty, "noHist")
+  local canLine = c.CreateLine ~= nil
+  local segs, dots = {}, {}
+  local function seg(i)
+    local l = segs[i]
+    if l == nil then
+      local ok, nl = pcall(c.CreateLine, c, nil, "ARTWORK")
+      l = (ok and nl) or false
+      if l then l:SetThickness(2) end
+      segs[i] = l
+    end
+    return l
   end
-  xl[1]:SetPoint("TOPLEFT", c1, "BOTTOMLEFT", 0, -3)
-  xl[2]:SetPoint("TOP", c1, "BOTTOM", 0, -3)
-  xl[3]:SetPoint("TOPRIGHT", c1, "BOTTOMRIGHT", 0, -3)
-  local NB = math.floor(CW / 3)
-  local cols, lines = {}, {}
-  for i = 1, NB do
-    local t = c1:CreateTexture(nil, "ARTWORK"); t:SetWidth(3); t:SetColorTexture(0.62, 0.82, 1, 0.16); t:Hide()
-    cols[i] = t
+  local function dot(i)
+    local t = dots[i]
+    if not t then t = c:CreateTexture(nil, "OVERLAY"); t:SetSize(5, 5); t:SetTexture(TEX .. "Dot"); dots[i] = t end
+    return t
+  end
+  -- musen over en dag: tooltip med alle kilder den dag
+  local hits = {}
+  local cur = {}
+
+  -- forklaring til hoejre: farve, navn og sum for perioden
+  local LX = X0 + CW + 22
+  local leg = {}
+  for i = 1, 8 do
+    local sw = g:CreateTexture(nil, "ARTWORK"); sw:SetSize(12, 2)
+    local nm = fs(g, F_SEMI, 11); nm:SetTextColor(0.85, 0.87, 0.92)
+    local v = fs(g, F_BOLD, 11); v:SetJustifyH("RIGHT")
+    sw:SetPoint("TOPLEFT", g, "TOPLEFT", LX, TOPY - 6 - (i - 1) * 20)
+    nm:SetPoint("LEFT", sw, "RIGHT", 6, 0)
+    v:SetPoint("RIGHT", g, "TOPLEFT", GW - 16, TOPY - 7 - (i - 1) * 20)
+    leg[i] = {sw = sw, nm = nm, v = v}
   end
 
-  -- graf 2: netto pr. dag
-  local h2 = fs(g, F_BOLD, 11); h2:SetPoint("TOPLEFT", 14, -240); h2:SetTextColor(1, 0.82, 0.4); label(h2, "netPerDay")
-  local CH2 = 84
-  local c2 = CreateFrame("Frame", nil, g); c2:SetPoint("TOPLEFT", 14, -258); c2:SetSize(CW, CH2)
-  local bg2 = c2:CreateTexture(nil, "BACKGROUND"); bg2:SetAllPoints(); bg2:SetColorTexture(1, 1, 1, 0.03)
-  local zero = c2:CreateTexture(nil, "BORDER"); zero:SetHeight(1); zero:SetColorTexture(1, 1, 1, 0.12)
-  zero:SetPoint("LEFT", c2, "BOTTOMLEFT", 0, CH2 / 2); zero:SetPoint("RIGHT", c2, "BOTTOMRIGHT", 0, CH2 / 2)
-  local SW2 = CW / DAYS
-  local bars, hov, dl = {}, {}, {}
-  for i = 1, DAYS do
-    local b = c2:CreateTexture(nil, "ARTWORK"); b:SetWidth(SW2 - 6); b:Hide(); bars[i] = b
-    local hv = CreateFrame("Frame", nil, c2); hv:SetSize(SW2, CH2); hv:SetPoint("BOTTOMLEFT", (i - 1) * SW2, 0)
-    hv:EnableMouse(true)
-    hv:SetScript("OnEnter", function(self)
-      if not self.t then return end
-      GameTooltip:SetOwner(self, "ANCHOR_TOP")
-      local d = date("*t", self.t)
-      GameTooltip:AddLine(string.format("%s %d. %s", T("daysFull")[d.wday], d.day, T("months")[d.month]), 1, 0.82, 0.3)
-      local n = net(self.t)
-      if n then GameTooltip:AddLine((n >= 0 and "+" or "") .. money(n), n >= 0 and GREEN[1] or RED[1], n >= 0 and GREEN[2] or RED[2], n >= 0 and GREEN[3] or RED[3])
-      else GameTooltip:AddLine(T("none"), 0.55, 0.58, 0.64) end
-      GameTooltip:Show()
-    end)
-    hv:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    hov[i] = hv
-    local t = fs(g, F_SEMI, 9); t:SetTextColor(0.45, 0.48, 0.54); t:SetPoint("TOP", c2, "BOTTOMLEFT", (i - 0.5) * SW2, -3); dl[i] = t
-  end
-
-  local function signed(c)
-    local col = c >= 0 and "|cff5cd97f+" or "|cffff6b6b"
-    return col .. money(c) .. "|r"
+  local function nice(raw)
+    if raw <= 0 then return 1 end
+    local mag = 10 ^ math.floor(math.log10 and math.log10(raw) or (math.log(raw) / math.log(10)))
+    local n = raw / mag
+    return (n <= 1 and 1 or n <= 2 and 2 or n <= 5 and 5 or 10) * mag
   end
 
   G.draw = function()
     if not DB then return end
     local now = time()
-    -- tal
-    local today = net(now) or 0
-    local week, n = 0, 0
-    for i = 0, 6 do
-      local v = net(midnight(now) + 43200 - i * 86400)
-      if v then week, n = week + v, n + 1 end
-    end
-    stat[1]:SetText(signed(today)); stat[2]:SetText(signed(week)); stat[3]:SetText(signed(n > 0 and week / n or 0))
-
-    -- graf 1
-    local h = DB.hist or {}
-    local t0 = now - DAYS * 86400
-    if h[1] and h[1].t > t0 then t0 = h[1].t end
-    local span = math.max(3600, now - t0)
-    local hi = math.max(1, DB.goal or 1)
-    for _, x in ipairs(h) do if x.m > hi then hi = x.m end end
-    hi = hi * 1.08
-    local vals, lastV = {}, nil
-    local j = 1
-    for i = 1, NB do
-      local tEnd = t0 + span * i / NB
-      while h[j] and h[j].t <= tEnd do lastV = h[j].m; j = j + 1 end
-      vals[i] = lastV
-    end
-    if lastV then vals[NB] = GetMoney() end
-    local have = #h >= 2
-    empty1:SetShown(not have)
-    local pts = {}
-    for i = 1, NB do
-      local v = have and vals[i]
-      if v then
-        local y = math.max(1, CH1 * v / hi)
-        cols[i]:ClearAllPoints(); cols[i]:SetPoint("BOTTOMLEFT", c1, "BOTTOMLEFT", (i - 1) * 3, 0); cols[i]:SetHeight(y); cols[i]:Show()
-        pts[#pts + 1] = {(i - 0.5) * 3, y}
-      else
-        cols[i]:Hide()
-      end
-    end
-    local k = 0
-    if c1.CreateLine then
-      for i = 2, #pts do
-        k = k + 1
-        local l = lines[k]
-        if not l then
-          local ok, nl = pcall(c1.CreateLine, c1, nil, "OVERLAY")
-          if not (ok and nl) then k = k - 1; break end  -- ingen linjer i denne klient: kun flade-grafen vises
-          l = nl; l:SetThickness(2); l:SetColorTexture(0.62, 0.82, 1, 0.95); lines[k] = l
+    local base = midnight(now) + 43200
+    local ts, series = {}, {}
+    for i = 1, days do ts[i] = base - (days - i) * 86400 end
+    local keys = mode == "inc" and INC or mode == "exp" and EXP or {"net"}
+    local any = false
+    for _, k in ipairs(keys) do series[#series + 1] = {k = k, v = {}, sum = 0} end
+    for i, t in ipairs(ts) do
+      local d = DB.days and DB.days[dayKey(t)]
+      if d then any = true end
+      for _, s in ipairs(series) do
+        local v = 0
+        if d then
+          if s.k == "net" then
+            for _, k in ipairs(INC) do v = v + ((d.inc or {})[k] or 0) end
+            for _, k in ipairs(EXP) do v = v - ((d.exp or {})[k] or 0) end
+          elseif mode == "inc" then v = (d.inc or {})[s.k] or 0
+          else v = (d.exp or {})[s.k] or 0 end
         end
-        l:SetStartPoint("BOTTOMLEFT", c1, pts[i - 1][1], pts[i - 1][2]); l:SetEndPoint("BOTTOMLEFT", c1, pts[i][1], pts[i][2]); l:Show()
+        s.sum = s.sum + v
+        s.v[i] = cum and s.sum or v
       end
     end
-    for i = k + 1, #lines do lines[i]:Hide() end
-    for i = 1, 3 do gridT[i]:SetText(gold(hi * i / 3)) end
-    local gy = CH1 * (DB.goal or 0) / hi
-    goalLn:ClearAllPoints(); goalLn:SetPoint("LEFT", c1, "BOTTOMLEFT", 0, gy); goalLn:SetPoint("RIGHT", c1, "BOTTOMRIGHT", 0, gy)
-    goalT:ClearAllPoints()
-    if gy > CH1 - 14 then goalT:SetPoint("TOPRIGHT", c1, "BOTTOMRIGHT", -3, gy - 2)  -- taet paa toppen: teksten under stregen
-    else goalT:SetPoint("BOTTOMRIGHT", c1, "BOTTOMRIGHT", -3, gy + 2) end
-    goalT:SetText(goalLabel() .. " " .. gold(DB.goal or 0))
-    local function dshort(t) local d = date("*t", t); return string.format("%d. %s", d.day, T("months")[d.month]) end
-    xl[1]:SetText(have and dshort(t0) or ""); xl[2]:SetText(have and dshort(t0 + span / 2) or ""); xl[3]:SetText(T("nowW"))
+    -- kun kilder med noget i perioden, stoerst foerst
+    local shown = {}
+    for _, s in ipairs(series) do if s.k == "net" or s.sum ~= 0 then shown[#shown + 1] = s end end
+    table.sort(shown, function(a, b) return math.abs(a.sum) > math.abs(b.sum) end)
+    while #shown > 7 do table.remove(shown) end
+    empty:SetShown(not any)
 
-    -- graf 2
-    local mx = 1
-    local ts = {}
-    for i = 1, DAYS do
-      ts[i] = midnight(now) + 43200 - (DAYS - i) * 86400
-      local v = net(ts[i])
-      if v and math.abs(v) > mx then mx = math.abs(v) end
+    local lo, hi = 0, 1
+    for _, s in ipairs(shown) do for i = 1, days do
+      if s.v[i] > hi then hi = s.v[i] end
+      if s.v[i] < lo then lo = s.v[i] end
+    end end
+    local step = nice((hi - lo) / 4)
+    hi = math.ceil(hi / step) * step; lo = math.floor(lo / step) * step
+    if hi - lo < step * 4 then hi = lo + step * 4 end
+    local function Y(v) return (v - lo) / (hi - lo) * CH end
+    for i = 0, 4 do
+      local v = lo + (hi - lo) * i / 4
+      local y = CH * i / 4
+      grid[i]:ClearAllPoints(); grid[i]:SetPoint("LEFT", c, "BOTTOMLEFT", 0, y); grid[i]:SetPoint("RIGHT", c, "BOTTOMRIGHT", 0, y)
+      grid[i]:SetColorTexture(1, 1, 1, v == 0 and 0.16 or 0.06)
+      gridT[i]:ClearAllPoints(); gridT[i]:SetPoint("RIGHT", c, "BOTTOMLEFT", -6, y)
+      gridT[i]:SetText(v == 0 and "0" or ((v < 0 and "-" or "") .. gold(math.abs(v))))
     end
-    for i = 1, DAYS do
-      local v, b = net(ts[i]), bars[i]
-      hov[i].t = ts[i]
-      if v and v ~= 0 then
-        local hgt = math.max(1, (CH2 / 2 - 2) * math.abs(v) / mx)
-        local c = v >= 0 and GREEN or RED
-        b:SetColorTexture(c[1], c[2], c[3], i == DAYS and 0.95 or 0.6)
-        b:ClearAllPoints(); b:SetHeight(hgt)
-        if v >= 0 then b:SetPoint("BOTTOMLEFT", c2, "BOTTOMLEFT", (i - 1) * SW2 + 3, CH2 / 2)
-        else b:SetPoint("TOPLEFT", c2, "BOTTOMLEFT", (i - 1) * SW2 + 3, CH2 / 2) end
-        b:Show()
-      else
-        b:Hide()
+    local function dstr(t) local d = date("*t", t); return string.format("%d. %s", d.day, T("months")[d.month]) end
+    xl[1]:SetText(dstr(ts[1])); xl[2]:SetText(dstr(ts[math.floor((days + 1) / 2)])); xl[3]:SetText(T("todayW"))
+
+    local dx = CW / math.max(1, days - 1)
+    local si, di = 0, 0
+    for _, s in ipairs(shown) do
+      local col = COLS[s.k] or COLS.otherIn
+      for i = 1, days do
+        local px, py = (i - 1) * dx, Y(s.v[i])
+        if i > 1 then
+          si = si + 1
+          local l = canLine and seg(si)
+          if l then
+            l:SetColorTexture(col[1], col[2], col[3], 0.95)
+            l:SetStartPoint("BOTTOMLEFT", c, (i - 2) * dx, Y(s.v[i - 1])); l:SetEndPoint("BOTTOMLEFT", c, px, py); l:Show()
+          end
+        end
+        if not canLine or days <= 14 then
+          di = di + 1
+          local t = dot(di); t:SetVertexColor(col[1], col[2], col[3]); t:ClearAllPoints(); t:SetPoint("CENTER", c, "BOTTOMLEFT", px, py); t:Show()
+        end
       end
-      local d = date("*t", ts[i])
-      dl[i]:SetText(i == DAYS and T("todayW") or ((DAYS - i) % 2 == 0 and tostring(d.day) or ""))
+    end
+    for i = si + 1, #segs do if segs[i] then segs[i]:Hide() end end
+    for i = di + 1, #dots do dots[i]:Hide() end
+
+    -- forklaring
+    local total = 0
+    for i, r in ipairs(leg) do
+      local s = shown[i]
+      if s then
+        local col = COLS[s.k] or COLS.otherIn
+        r.sw:SetColorTexture(col[1], col[2], col[3], 1); r.sw:Show()
+        r.nm:SetText(T(s.k == "net" and "netW" or s.k)); r.nm:Show()
+        r.v:SetText(money(s.sum)); r.v:SetTextColor(0.91, 0.92, 0.94); r.v:Show()
+        total = total + s.sum
+      elseif i == #shown + 1 and mode ~= "net" and #shown > 1 then
+        r.sw:Hide(); r.nm:SetText("|cffffd24a" .. T("total") .. "|r"); r.nm:Show()
+        r.v:SetText(money(total)); r.v:SetTextColor(1, 0.82, 0.29); r.v:Show()
+      else
+        r.sw:Hide(); r.nm:Hide(); r.v:Hide()
+      end
+    end
+
+    -- felter til musen, et pr. dag
+    cur = {ts = ts, shown = shown, cum = cum}
+    for i = 1, 30 do
+      local h = hits[i]
+      if i <= days then
+        if not h then
+          h = CreateFrame("Frame", nil, c); h:EnableMouse(true)
+          h:SetScript("OnEnter", function(self)
+            local j = self.i
+            local t = cur.ts and cur.ts[j]
+            if not t then return end
+            local d = date("*t", t)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:AddLine(string.format("%s %d. %s", T("daysFull")[d.wday], d.day, T("months")[d.month]), 1, 0.82, 0.3)
+            for _, s in ipairs(cur.shown) do
+              local col = COLS[s.k] or COLS.otherIn
+              GameTooltip:AddDoubleLine(T(s.k == "net" and "netW" or s.k), money(s.v[j]), col[1], col[2], col[3], 1, 1, 1)
+            end
+            GameTooltip:Show()
+          end)
+          h:SetScript("OnLeave", function() GameTooltip:Hide() end)
+          hits[i] = h
+        end
+        h.i = i
+        h:ClearAllPoints(); h:SetSize(math.max(8, dx), CH)
+        h:SetPoint("CENTER", c, "BOTTOMLEFT", (i - 1) * dx, CH / 2); h:Show()
+      elseif h then
+        h:Hide()
+      end
     end
   end
-  g:SetScript("OnShow", function() G.track() end)
+  g:SetScript("OnShow", function() G.draw() end)
   G.toggle = function() if g:IsShown() then g:Hide() else g:Show() end end
   graphBtn:SetScript("OnClick", G.toggle)
 end
@@ -1319,9 +1359,11 @@ toggle(-170, "showMinimap", function() return DB.showMinimap end, function(v) DB
 slider(-202, "size", 0.6, 2.0, 0.05, function() return f._scale or DB.scale end, function(v) DB.scale = v; DB.scaleFollow = false end, pctFmt)
 colX = COL
 section(-92, "detailSec")
-toggle(-114, "showDetails", function() return DB.showDetails end, function(v) DB.showDetails = v end)
-toggle(-142, "fuse", function() return DB.fuse end, function(v) DB.fuse = v end)
-toggle(-170, "countBags", function() return DB.countBags end, function(v) DB.countBags = v end)
+toggle(-114, "showSess", function() return DB.showSess end, function(v) DB.showSess = v end)
+toggle(-142, "showSpots", function() return DB.showSpots end, function(v) DB.showSpots = v end)
+toggle(-170, "showFarms", function() return DB.showFarms end, function(v) DB.showFarms = v end)
+toggle(-198, "fuse", function() return DB.fuse end, function(v) DB.fuse = v end)
+toggle(-226, "countBags", function() return DB.countBags end, function(v) DB.countBags = v end)
 
 -- fane 2: maal
 host = pages[2]
@@ -1513,6 +1555,7 @@ local function onMoney()
   lastMoney = m
   if delta == 0 then return end
   local cat = category(delta)
+  G.add(cat, delta)
   if delta > 0 then
     DB.sess.inc[cat] = (DB.sess.inc[cat] or 0) + delta
     addPace(delta)
@@ -1625,6 +1668,7 @@ E:SetScript("OnEvent", function(_, event, a1, a2)
     if a1 == ADDON then
       GoldETADB = GoldETADB or {}
       DB = GoldETADB
+      if DB.showSess == nil and DB.showDetails then DB.showSess, DB.showSpots, DB.showFarms = true, true, true end
       for k, v in pairs(defaults) do if DB[k] == nil then DB[k] = v end end
       if not DB.farms then  -- foerste gang: byg farm-loggen ud fra de runs der allerede er gemt
         DB.farms = {}

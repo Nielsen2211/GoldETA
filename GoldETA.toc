@@ -3,7 +3,7 @@
 ## Notes: Gold per hour, farm runs, and when you can afford your mount. Fits into LevelETA's window when both are installed.
 ## Notes-daDK: Guld pr. time, farm runs, og hvornår du har råd til dit mount. Passer ind i LevelETA's vindue, når begge er installeret.
 ## Author: Rasmus
-## Version: 1.10
+## Version: 2.0
 ## IconTexture: Interface\AddOns\GoldETA\Textures\Logo
 ## OptionalDeps: LevelETA, Auctionator, auxForever
 ## SavedVariablesPerCharacter: GoldETADB

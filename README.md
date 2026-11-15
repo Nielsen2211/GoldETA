@@ -24,7 +24,7 @@ Every amount is shown with the game's own gold, silver and copper icons.
 
 Under the rows you see your gold per hour for the last 15 minutes and what the items in your bags are worth.
 
-Click **GoldETA** at the top of the window to show the details:
+Under the rows you can show three sections. Turn each on or off in the settings, under Details:
 
 - **This session**: your income and spending split into categories
 - **Best farm spots**: gold per hour for every zone where you have farmed at least 10 minutes
@@ -34,9 +34,10 @@ Click **GoldETA** at the top of the window to show the details:
 
 Click **Graph** at the top of the window (or `/geta graph`) to open your gold history:
 
-- **Today**, **last 7 days** and **per day**: how much you are up or down
-- **Your gold, last 14 days**: a curve of your gold with your goal as a gold line, so you can see it grow toward your mount
-- **Net per day**: a bar for each of the last 14 days, green when you made gold and red when you spent more than you made. Hover a bar for the exact amount
+- **Income**, **Expenses** or **Net**: a line per source (looted coin, vendor, quests, mail and AH, repairs, flights and so on), one point per day
+- **7, 14 or 30 days**, and **Cumulative** to see the totals grow over the period
+- A legend with the total per source, and the total for the period
+- Hover a day to see every source for that day
 
 The history starts when you install this version and fills up as you play.
 
