@@ -21,7 +21,7 @@ local LOC = {
     daysFull = {"Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"},
     months = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"},
     todayW = "Today", tomorrowW = "Tomorrow", at = "%s %02d:%02d", hm = "%dh %02dm",
-    perHr = "/hr", of = "of", session = "Session", ready = "%s ready", readyNow = "Ready now!",
+    perHr = "/hr", leftTo = "%s |cff8c94a3to %s|r", of = "of", session = "Session", ready = "%s ready", readyNow = "Ready now!",
     measuring = "Measuring...", notPace = "Not at this pace", last15 = "last 15 m", inBags = "in bags",
     before = "Ready %s before level %d", after = "%s after level %d", dayFmt = "%d days", oneDay = "1 day",
     goalHead = "%s goal", viaGold = "via GoldETA", goldReady = "Gold ready",
@@ -56,7 +56,7 @@ local LOC = {
     daysFull = {"Søndag","Mandag","Tirsdag","Onsdag","Torsdag","Fredag","Lørdag"},
     months = {"jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"},
     todayW = "I dag", tomorrowW = "I morgen", at = "%s kl. %02d:%02d", hm = "%dt %02dm",
-    perHr = "/t", of = "af", session = "Session", ready = "%s klar", readyNow = "Klar nu!",
+    perHr = "/t", leftTo = "%s |cff8c94a3til %s|r", of = "af", session = "Session", ready = "%s klar", readyNow = "Klar nu!",
     measuring = "Måler...", notPace = "Ikke med dette tempo", last15 = "sidste 15 m", inBags = "i taskerne",
     before = "Klar %s før level %d", after = "%s efter level %d", dayFmt = "%d dage", oneDay = "1 dag",
     goalHead = "Mål: %s", viaGold = "via GoldETA", goldReady = "Guld klar",
@@ -631,6 +631,23 @@ local function wallDur(sec)  -- forskel i rigtig tid: "2 dage" eller "5t 20m"
 end
 
 local function goalLabel() return T(DB.goalName or "pMount") end
+
+-- til LevelETA's XP-bar: guld i timen og hvor meget guld der mangler til maalet, som faerdig tekst
+GoldETA_API = {
+  version = 1,
+  GoldPerHourText = function()
+    if not DB then return nil end
+    local r = rate()
+    if not r then return nil end
+    return money(r * 3600) .. "|cff8c94a3" .. T("perHr") .. "|r"
+  end,
+  GoalLeftText = function()
+    if not DB or DB.noGoal then return nil end
+    local gi = goalInfo()
+    if gi.done then return string.format(T("ready"), goalLabel()) end
+    return string.format(T("leftTo"), gold(gi.left), goalLabel())
+  end,
+}
 
 local function compareLine(gi)
   if not gi.levelDiff then return nil end
