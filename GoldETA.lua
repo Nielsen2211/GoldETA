@@ -30,7 +30,9 @@ local LOC = {
     avgAll = "Average per hour, all time", noSpots = "Farm 10 min in a zone to see it here", noRuns = "No farm runs yet",
     loot = "Looted coin", vendor = "Vendor", quest = "Quests", mail = "Mail and AH", trade = "Trade", otherIn = "Other income",
     repair = "Repairs", flight = "Flights", training = "Training", ahSpend = "Auction House", buy = "Vendor buys", otherOut = "Other spending",
-    farm = "Farm", farming = "Farming %s", paused = "Paused %s", total = "Total", coin = "Looted coin",
+    farm = "Farm", graph = "Graph", graphTitle = "Gold history", goldOverTime = "Your gold, last 14 days", netPerDay = "Net per day",
+    todayNet = "Today", last7 = "Last 7 days", perDay = "Per day", noHist = "Fills up as you play", nowW = "Now",
+    farming = "Farming %s", paused = "Paused %s", total = "Total", coin = "Looted coin",
     itemsV = "Items, vendor value", itemsA = "Items, AH value", kills = "Kills", topLoot = "Top loot",
     pause = "Pause", resume = "Resume", stop = "Stop", saveHead = "Save farm run", save = "Save", discard = "Discard",
     runSaved = "Farm run saved: %s", runSub = "%s  ·  %s%s", lastSess = "Last session: %s", lastSub = "%s  ·  %s%s",
@@ -63,7 +65,9 @@ local LOC = {
     avgAll = "Gennemsnit pr. time, i alt", noSpots = "Farm 10 min i en zone for at se den her", noRuns = "Ingen farm runs endnu",
     loot = "Looted coin", vendor = "Vendor", quest = "Quests", mail = "Mail og AH", trade = "Handel", otherIn = "Anden indtægt",
     repair = "Reparation", flight = "Flyveture", training = "Træning", ahSpend = "Auction House", buy = "Køb hos vendor", otherOut = "Andre udgifter",
-    farm = "Farm", farming = "Farmer %s", paused = "Pause %s", total = "I alt", coin = "Looted coin",
+    farm = "Farm", graph = "Graf", graphTitle = "Guldhistorik", goldOverTime = "Dit guld, sidste 14 dage", netPerDay = "Netto pr. dag",
+    todayNet = "I dag", last7 = "Sidste 7 dage", perDay = "Pr. dag", noHist = "Fyldes op, mens du spiller", nowW = "Nu",
+    farming = "Farmer %s", paused = "Pause %s", total = "I alt", coin = "Looted coin",
     itemsV = "Items, vendor-pris", itemsA = "Items, AH-pris", kills = "Kills", topLoot = "Bedste loot",
     pause = "Pause", resume = "Fortsæt", stop = "Stop", saveHead = "Gem farm run", save = "Gem", discard = "Kassér",
     runSaved = "Farm run gemt: %s", runSub = "%s  ·  %s%s", lastSess = "Sidste session: %s", lastSub = "%s  ·  %s%s",
@@ -438,6 +442,8 @@ titleBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
 local farmBtn = pill(f, nil, 92, 20)
 farmBtn:SetPoint("TOPRIGHT", -12, -10)
+local graphBtn = pill(f, nil, 52, 20)
+graphBtn:SetPoint("RIGHT", farmBtn, "LEFT", -6, 0); label(graphBtn.text, "graph")
 
 -- raekker: label til venstre, vaerdi til hoejre, streg eller bjaelke under (samme maal som LevelETA)
 local rowPool, rowN = {}, 0
@@ -901,6 +907,219 @@ runStop:SetScript("OnClick", stopRun)
 runPause:SetScript("OnClick", function() if DB.run then DB.run.paused = not DB.run.paused; refresh() end end)
 titleBtn:SetScript("OnClick", function() DB.showDetails = not DB.showDetails; refresh() end)
 
+-- ---------- historik og graf: dit guld over tid og netto pr. dag ----------
+local G = {}
+do
+  local DAYS = 14
+  local function dayKey(t) return date("%Y-%m-%d", t) end
+  -- gemmer dit guld hvert 10. minut (seneste vaerdi), og guld ved dagens start og slut
+  G.track = function()
+    if not DB or not GetMoney then return end
+    local m, now = GetMoney(), time()
+    DB.hist = DB.hist or {}
+    DB.days = DB.days or {}
+    local h = DB.hist
+    local last = h[#h]
+    if last and now - last.t < 600 then last.m = m else h[#h + 1] = {t = now, m = m} end
+    while h[1] and h[1].t < now - (DAYS + 1) * 86400 do table.remove(h, 1) end
+    local k = dayKey(now)
+    local d = DB.days[k]
+    if not d then d = {m0 = DB.lastM or m}; DB.days[k] = d end
+    d.m1 = m
+    DB.lastM = m
+    if not G.pruned then
+      G.pruned = true
+      local cut = dayKey(now - 30 * 86400)
+      for key in pairs(DB.days) do if key < cut then DB.days[key] = nil end end
+    end
+    if G.frame and G.frame:IsShown() then G.draw() end
+  end
+  local function net(t)
+    local d = DB.days and DB.days[dayKey(t)]
+    if d and d.m1 then return d.m1 - (d.m0 or d.m1) end
+  end
+
+  local GREEN, RED = {0.36, 0.85, 0.5}, {1, 0.42, 0.42}
+  local GW, CW = 440, 412
+  local g = CreateFrame("Frame", "GoldETAGraph", UIParent)
+  g:SetSize(GW, 384); g:SetPoint("CENTER"); g:SetFrameStrata("DIALOG"); g:Hide()
+  skin(g, "Panel", 520, 1024)
+  movable(g, function() return true end)
+  g:SetScript("OnDragStop", g.StopMovingOrSizing)
+  tinsert(UISpecialFrames, "GoldETAGraph")
+  label(header(g), "graphTitle")
+  local cx = CreateFrame("Button", nil, g)
+  cx:SetSize(20, 20); cx:SetPoint("TOPRIGHT", -10, -10)
+  local cxT = fs(cx, F_BOLD, 16); cxT:SetPoint("CENTER"); cxT:SetText("×"); cxT:SetTextColor(0.55, 0.58, 0.64)
+  cx:SetScript("OnEnter", function() cxT:SetTextColor(1, 1, 1) end)
+  cx:SetScript("OnLeave", function() cxT:SetTextColor(0.55, 0.58, 0.64) end)
+  cx:SetScript("OnClick", function() g:Hide() end)
+  G.frame = g
+
+  -- tre tal oeverst: i dag, sidste 7 dage, pr. dag
+  local stat = {}
+  for i, key in ipairs({"todayNet", "last7", "perDay"}) do
+    local l = fs(g, F_SEMI, 11); l:SetPoint("TOPLEFT", 14 + (i - 1) * 142, -48); l:SetTextColor(0.55, 0.58, 0.64); label(l, key)
+    local v = fs(g, F_BOLD, 15); v:SetPoint("TOPLEFT", 14 + (i - 1) * 142, -64)
+    stat[i] = v
+  end
+
+  -- graf 1: dit guld over tid
+  local h1 = fs(g, F_BOLD, 11); h1:SetPoint("TOPLEFT", 14, -96); h1:SetTextColor(1, 0.82, 0.4); label(h1, "goldOverTime")
+  local CH1 = 100
+  local c1 = CreateFrame("Frame", nil, g); c1:SetPoint("TOPLEFT", 14, -114); c1:SetSize(CW, CH1)
+  local bg1 = c1:CreateTexture(nil, "BACKGROUND"); bg1:SetAllPoints(); bg1:SetColorTexture(1, 1, 1, 0.03)
+  local grid, gridT = {}, {}
+  for i = 1, 3 do
+    local t = c1:CreateTexture(nil, "BORDER"); t:SetHeight(1); t:SetColorTexture(1, 1, 1, 0.06)
+    t:SetPoint("LEFT", c1, "BOTTOMLEFT", 0, CH1 * i / 3); t:SetPoint("RIGHT", c1, "BOTTOMRIGHT", 0, CH1 * i / 3)
+    local tx = fs(c1, F_SEMI, 9); tx:SetPoint("BOTTOMLEFT", c1, "BOTTOMLEFT", 3, CH1 * i / 3 + 2); tx:SetTextColor(0.45, 0.48, 0.54)
+    grid[i], gridT[i] = t, tx
+  end
+  local goalLn = c1:CreateTexture(nil, "ARTWORK"); goalLn:SetHeight(1); goalLn:SetColorTexture(1, 0.82, 0.29, 0.8)
+  local goalT = fs(c1, F_BOLD, 10); goalT:SetTextColor(1, 0.82, 0.29)
+  local empty1 = fs(c1, F_SEMI, 11); empty1:SetPoint("CENTER"); empty1:SetTextColor(0.55, 0.58, 0.64); label(empty1, "noHist")
+  local xl = {}
+  for i = 1, 3 do
+    local t = fs(g, F_SEMI, 9); t:SetTextColor(0.45, 0.48, 0.54); xl[i] = t
+  end
+  xl[1]:SetPoint("TOPLEFT", c1, "BOTTOMLEFT", 0, -3)
+  xl[2]:SetPoint("TOP", c1, "BOTTOM", 0, -3)
+  xl[3]:SetPoint("TOPRIGHT", c1, "BOTTOMRIGHT", 0, -3)
+  local NB = math.floor(CW / 3)
+  local cols, lines = {}, {}
+  for i = 1, NB do
+    local t = c1:CreateTexture(nil, "ARTWORK"); t:SetWidth(3); t:SetColorTexture(0.62, 0.82, 1, 0.16); t:Hide()
+    cols[i] = t
+  end
+
+  -- graf 2: netto pr. dag
+  local h2 = fs(g, F_BOLD, 11); h2:SetPoint("TOPLEFT", 14, -240); h2:SetTextColor(1, 0.82, 0.4); label(h2, "netPerDay")
+  local CH2 = 84
+  local c2 = CreateFrame("Frame", nil, g); c2:SetPoint("TOPLEFT", 14, -258); c2:SetSize(CW, CH2)
+  local bg2 = c2:CreateTexture(nil, "BACKGROUND"); bg2:SetAllPoints(); bg2:SetColorTexture(1, 1, 1, 0.03)
+  local zero = c2:CreateTexture(nil, "BORDER"); zero:SetHeight(1); zero:SetColorTexture(1, 1, 1, 0.12)
+  zero:SetPoint("LEFT", c2, "BOTTOMLEFT", 0, CH2 / 2); zero:SetPoint("RIGHT", c2, "BOTTOMRIGHT", 0, CH2 / 2)
+  local SW2 = CW / DAYS
+  local bars, hov, dl = {}, {}, {}
+  for i = 1, DAYS do
+    local b = c2:CreateTexture(nil, "ARTWORK"); b:SetWidth(SW2 - 6); b:Hide(); bars[i] = b
+    local hv = CreateFrame("Frame", nil, c2); hv:SetSize(SW2, CH2); hv:SetPoint("BOTTOMLEFT", (i - 1) * SW2, 0)
+    hv:EnableMouse(true)
+    hv:SetScript("OnEnter", function(self)
+      if not self.t then return end
+      GameTooltip:SetOwner(self, "ANCHOR_TOP")
+      local d = date("*t", self.t)
+      GameTooltip:AddLine(string.format("%s %d. %s", T("daysFull")[d.wday], d.day, T("months")[d.month]), 1, 0.82, 0.3)
+      local n = net(self.t)
+      if n then GameTooltip:AddLine((n >= 0 and "+" or "") .. money(n), n >= 0 and GREEN[1] or RED[1], n >= 0 and GREEN[2] or RED[2], n >= 0 and GREEN[3] or RED[3])
+      else GameTooltip:AddLine(T("none"), 0.55, 0.58, 0.64) end
+      GameTooltip:Show()
+    end)
+    hv:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    hov[i] = hv
+    local t = fs(g, F_SEMI, 9); t:SetTextColor(0.45, 0.48, 0.54); t:SetPoint("TOP", c2, "BOTTOMLEFT", (i - 0.5) * SW2, -3); dl[i] = t
+  end
+
+  local function signed(c)
+    local col = c >= 0 and "|cff5cd97f+" or "|cffff6b6b"
+    return col .. money(c) .. "|r"
+  end
+
+  G.draw = function()
+    if not DB then return end
+    local now = time()
+    -- tal
+    local today = net(now) or 0
+    local week, n = 0, 0
+    for i = 0, 6 do
+      local v = net(midnight(now) + 43200 - i * 86400)
+      if v then week, n = week + v, n + 1 end
+    end
+    stat[1]:SetText(signed(today)); stat[2]:SetText(signed(week)); stat[3]:SetText(signed(n > 0 and week / n or 0))
+
+    -- graf 1
+    local h = DB.hist or {}
+    local t0 = now - DAYS * 86400
+    if h[1] and h[1].t > t0 then t0 = h[1].t end
+    local span = math.max(3600, now - t0)
+    local hi = math.max(1, DB.goal or 1)
+    for _, x in ipairs(h) do if x.m > hi then hi = x.m end end
+    hi = hi * 1.08
+    local vals, lastV = {}, nil
+    local j = 1
+    for i = 1, NB do
+      local tEnd = t0 + span * i / NB
+      while h[j] and h[j].t <= tEnd do lastV = h[j].m; j = j + 1 end
+      vals[i] = lastV
+    end
+    if lastV then vals[NB] = GetMoney() end
+    local have = #h >= 2
+    empty1:SetShown(not have)
+    local pts = {}
+    for i = 1, NB do
+      local v = have and vals[i]
+      if v then
+        local y = math.max(1, CH1 * v / hi)
+        cols[i]:ClearAllPoints(); cols[i]:SetPoint("BOTTOMLEFT", c1, "BOTTOMLEFT", (i - 1) * 3, 0); cols[i]:SetHeight(y); cols[i]:Show()
+        pts[#pts + 1] = {(i - 0.5) * 3, y}
+      else
+        cols[i]:Hide()
+      end
+    end
+    local k = 0
+    if c1.CreateLine then
+      for i = 2, #pts do
+        k = k + 1
+        local l = lines[k]
+        if not l then
+          local ok, nl = pcall(c1.CreateLine, c1, nil, "OVERLAY")
+          if not (ok and nl) then k = k - 1; break end  -- ingen linjer i denne klient: kun flade-grafen vises
+          l = nl; l:SetThickness(2); l:SetColorTexture(0.62, 0.82, 1, 0.95); lines[k] = l
+        end
+        l:SetStartPoint("BOTTOMLEFT", c1, pts[i - 1][1], pts[i - 1][2]); l:SetEndPoint("BOTTOMLEFT", c1, pts[i][1], pts[i][2]); l:Show()
+      end
+    end
+    for i = k + 1, #lines do lines[i]:Hide() end
+    for i = 1, 3 do gridT[i]:SetText(gold(hi * i / 3)) end
+    local gy = CH1 * (DB.goal or 0) / hi
+    goalLn:ClearAllPoints(); goalLn:SetPoint("LEFT", c1, "BOTTOMLEFT", 0, gy); goalLn:SetPoint("RIGHT", c1, "BOTTOMRIGHT", 0, gy)
+    goalT:ClearAllPoints(); goalT:SetPoint("BOTTOMRIGHT", c1, "BOTTOMRIGHT", -3, gy + 2)
+    goalT:SetText(goalLabel() .. " " .. gold(DB.goal or 0))
+    local function dshort(t) local d = date("*t", t); return string.format("%d. %s", d.day, T("months")[d.month]) end
+    xl[1]:SetText(have and dshort(t0) or ""); xl[2]:SetText(have and dshort(t0 + span / 2) or ""); xl[3]:SetText(T("nowW"))
+
+    -- graf 2
+    local mx = 1
+    local ts = {}
+    for i = 1, DAYS do
+      ts[i] = midnight(now) + 43200 - (DAYS - i) * 86400
+      local v = net(ts[i])
+      if v and math.abs(v) > mx then mx = math.abs(v) end
+    end
+    for i = 1, DAYS do
+      local v, b = net(ts[i]), bars[i]
+      hov[i].t = ts[i]
+      if v and v ~= 0 then
+        local hgt = math.max(1, (CH2 / 2 - 2) * math.abs(v) / mx)
+        local c = v >= 0 and GREEN or RED
+        b:SetColorTexture(c[1], c[2], c[3], i == DAYS and 0.95 or 0.6)
+        b:ClearAllPoints(); b:SetHeight(hgt)
+        if v >= 0 then b:SetPoint("BOTTOMLEFT", c2, "BOTTOMLEFT", (i - 1) * SW2 + 3, CH2 / 2)
+        else b:SetPoint("TOPLEFT", c2, "BOTTOMLEFT", (i - 1) * SW2 + 3, CH2 / 2) end
+        b:Show()
+      else
+        b:Hide()
+      end
+      local d = date("*t", ts[i])
+      dl[i]:SetText(i == DAYS and T("todayW") or ((DAYS - i) % 2 == 0 and tostring(d.day) or ""))
+    end
+  end
+  g:SetScript("OnShow", function() G.track() end)
+  G.toggle = function() if g:IsShown() then g:Hide() else g:Show() end end
+  graphBtn:SetScript("OnClick", G.toggle)
+end
+
 -- ---------- sektion i LevelETA's vindue ----------
 do
   local sec, rowsF, h = nil, {}, 0
@@ -1285,6 +1504,7 @@ local function zone()
 end
 
 local function onMoney()
+  G.track()
   local m = GetMoney()
   if not lastMoney then lastMoney = m; return end
   local delta = m - lastMoney
@@ -1422,6 +1642,7 @@ E:SetScript("OnEvent", function(_, event, a1, a2)
   if not DB then return end
   if event == "PLAYER_ENTERING_WORLD" then
     lastMoney = GetMoney()
+    G.track()
     local key = (GetRealmName and GetRealmName() or "") .. "-" .. (UnitName("player") or "")
     local _, class = UnitClass("player")
     ADB.chars[key] = {name = UnitName("player"), class = class, m = lastMoney}
@@ -1525,6 +1746,7 @@ SlashCmdList.GOLDETA = function(msg)
   msg = (msg or ""):lower()
   if msg == "farm" then toggleRun()
   elseif msg == "show" or msg == "vis" then toggleWindow()
+  elseif msg == "graph" or msg == "graf" then G.toggle()
   elseif msg == "log" then
     local fl = farmList()
     print("|cffffd24a" .. T("logHead") .. "|r")

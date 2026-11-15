@@ -30,6 +30,16 @@ Click **GoldETA** at the top of the window to show the details:
 - **Best farm spots**: gold per hour for every zone where you have farmed at least 10 minutes
 - **Farm log**: your farms sorted by gold per hour, best at the top
 
+## Gold history
+
+Click **Graph** at the top of the window (or `/geta graph`) to open your gold history:
+
+- **Today**, **last 7 days** and **per day**: how much you are up or down
+- **Your gold, last 14 days**: a curve of your gold with your goal as a gold line, so you can see it grow toward your mount
+- **Net per day**: a bar for each of the last 14 days, green when you made gold and red when you spent more than you made. Hover a bar for the exact amount
+
+The history starts when you install this version and fills up as you play.
+
 ## Farm runs
 
 Click **Farm** at the top of the window (or use `/geta farm`, Shift click the minimap button, or set a key under Key Bindings, AddOns).
@@ -78,6 +88,7 @@ If auxForever is installed, GoldETA uses its usual AH price for item values (the
 | `/geta` | Settings |
 | `/geta show` | Show or hide the window |
 | `/geta farm` | Start or stop a farm run |
+| `/geta graph` | Your gold history |
 | `/geta log` | Your farm log in chat, best gold per hour first |
 | `/geta summary` | A short summary of this session |
 
