@@ -43,7 +43,7 @@ local LOC = {
     language = "Language: English", reset = "Reset session", close = "Done",
     standalone = "Works on its own. Fits into LevelETA's window when both are installed.",
     leFound = "LevelETA: found, the goal is shown in its window", leMissing = "LevelETA: not installed",
-    aucFound = "Auctionator: found, AH prices are used", aucMissing = "Auctionator: not installed, vendor prices are used",
+    aucFound = "Auctionator: found, AH prices are used", auxFound = "auxForever: found, AH prices are used", aucMissing = "No auxForever or Auctionator, vendor prices are used",
     tipLeft = "Left click: show or hide", tipRight = "Right click: settings", tipShift = "Shift click: start or stop farming",
     chars = "Characters", allChars = "All characters", gph = "Gold per hour", none = "none",
     expand = "Click: show or hide details",
@@ -75,7 +75,7 @@ local LOC = {
     language = "Sprog: Dansk", reset = "Nulstil session", close = "Færdig",
     standalone = "Virker helt alene. Passer ind i LevelETA's vindue, når begge er installeret.",
     leFound = "LevelETA: fundet, målet vises i dens vindue", leMissing = "LevelETA: ikke installeret",
-    aucFound = "Auctionator: fundet, AH-priser bruges", aucMissing = "Auctionator: ikke installeret, vendor-priser bruges",
+    aucFound = "Auctionator: fundet, AH-priser bruges", auxFound = "auxForever: fundet, AH-priser bruges", aucMissing = "Ingen auxForever eller Auctionator, vendor-priser bruges",
     tipLeft = "Venstreklik: vis eller skjul", tipRight = "Højreklik: indstillinger", tipShift = "Shift-klik: start eller stop farm",
     chars = "Karakterer", allChars = "Alle karakterer", gph = "Guld pr. time", none = "ingen",
     expand = "Klik: vis eller skjul detaljer",
@@ -273,17 +273,27 @@ local function importLE()
 end
 
 -- ---------- vaerdi af items ----------
-local function aucLoaded() return type(Auctionator) == "table" and Auctionator.API and Auctionator.API.v1 and Auctionator.API.v1.GetAuctionPriceByItemID end
+local function auctionator() return type(Auctionator) == "table" and Auctionator.API and Auctionator.API.v1 and Auctionator.API.v1.GetAuctionPriceByItemID end
+-- auxForever har et offentligt API (AuxForeverAPI) med priser fra dens egne AH-scanninger
+local function auxOK() return type(AuxForeverAPI) == "table" and type(AuxForeverAPI.GetUsualPrice) == "function" end
+local function aucLoaded() return auctionator() or auxOK() end
 
 local function sellPrice(id)
   local ok, v = pcall(function() return select(11, GII(id)) end)
   return (ok and type(v) == "number") and v or 0
 end
 
-local function ahPrice(id)  -- AH-pris fra Auctionator (kun laesning), ellers nil
-  if not aucLoaded() then return nil end
-  local ok, v = pcall(Auctionator.API.v1.GetAuctionPriceByItemID, ADDON, id)
-  if ok and type(v) == "number" and v > 0 then return v end
+local function ahPrice(id)  -- AH-pris fra auxForever eller Auctionator (kun laesning), ellers nil
+  if auxOK() then
+    -- den saedvanlige pris over de sidste dage; ellers prisen fra sidste fulde scanning
+    local ok, v = pcall(AuxForeverAPI.GetUsualPrice, id)
+    if not (ok and type(v) == "number" and v > 0) and AuxForeverAPI.GetLatestPrice then ok, v = pcall(AuxForeverAPI.GetLatestPrice, id) end
+    if ok and type(v) == "number" and v > 0 then return v end
+  end
+  if auctionator() then
+    local ok, v = pcall(Auctionator.API.v1.GetAuctionPriceByItemID, ADDON, id)
+    if ok and type(v) == "number" and v > 0 then return v end
+  end
 end
 
 local bagCache = {v = 0, a = 0}
@@ -1139,7 +1149,7 @@ end
 S:SetScript("OnShow", function()
   updateLabels()
   status(leDot, leText, LE() ~= nil, "leFound", "leMissing")
-  status(aucDot, aucText, aucLoaded() and true or false, "aucFound", "aucMissing")
+  status(aucDot, aucText, aucLoaded() and true or false, auxOK() and "auxFound" or "aucFound", "aucMissing")
   for _, c in ipairs(controls) do c.load() end
   showTab(DB.tab or 1)
 end)

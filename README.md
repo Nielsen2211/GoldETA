@@ -56,9 +56,9 @@ When [LevelETA](https://github.com/Nielsen2211/LevelETA) is installed:
 
 You can turn this off in GoldETA's settings with **Show in LevelETA's window**.
 
-## With Auctionator
+## With auxForever or Auctionator
 
-If Auctionator is installed, GoldETA uses its prices for item values. Without it, vendor prices are used.
+If auxForever is installed, GoldETA uses its usual AH price for item values (the same price aux uses to find deals). If not, it uses Auctionator's prices. Without either, vendor prices are used. An item is never valued below its vendor price.
 
 ## Minimap button
 
