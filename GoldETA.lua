@@ -973,7 +973,7 @@ do
   for i = 1, 3 do
     local t = c1:CreateTexture(nil, "BORDER"); t:SetHeight(1); t:SetColorTexture(1, 1, 1, 0.06)
     t:SetPoint("LEFT", c1, "BOTTOMLEFT", 0, CH1 * i / 3); t:SetPoint("RIGHT", c1, "BOTTOMRIGHT", 0, CH1 * i / 3)
-    local tx = fs(c1, F_SEMI, 9); tx:SetPoint("BOTTOMLEFT", c1, "BOTTOMLEFT", 3, CH1 * i / 3 + 2); tx:SetTextColor(0.45, 0.48, 0.54)
+    local tx = fs(c1, F_SEMI, 9); tx:SetPoint("TOPLEFT", c1, "BOTTOMLEFT", 3, CH1 * i / 3 - 2); tx:SetTextColor(0.45, 0.48, 0.54)  -- under stregen, inde i grafen
     grid[i], gridT[i] = t, tx
   end
   local goalLn = c1:CreateTexture(nil, "ARTWORK"); goalLn:SetHeight(1); goalLn:SetColorTexture(1, 0.82, 0.29, 0.8)
@@ -1084,7 +1084,9 @@ do
     for i = 1, 3 do gridT[i]:SetText(gold(hi * i / 3)) end
     local gy = CH1 * (DB.goal or 0) / hi
     goalLn:ClearAllPoints(); goalLn:SetPoint("LEFT", c1, "BOTTOMLEFT", 0, gy); goalLn:SetPoint("RIGHT", c1, "BOTTOMRIGHT", 0, gy)
-    goalT:ClearAllPoints(); goalT:SetPoint("BOTTOMRIGHT", c1, "BOTTOMRIGHT", -3, gy + 2)
+    goalT:ClearAllPoints()
+    if gy > CH1 - 14 then goalT:SetPoint("TOPRIGHT", c1, "BOTTOMRIGHT", -3, gy - 2)  -- taet paa toppen: teksten under stregen
+    else goalT:SetPoint("BOTTOMRIGHT", c1, "BOTTOMRIGHT", -3, gy + 2) end
     goalT:SetText(goalLabel() .. " " .. gold(DB.goal or 0))
     local function dshort(t) local d = date("*t", t); return string.format("%d. %s", d.day, T("months")[d.month]) end
     xl[1]:SetText(have and dshort(t0) or ""); xl[2]:SetText(have and dshort(t0 + span / 2) or ""); xl[3]:SetText(T("nowW"))
