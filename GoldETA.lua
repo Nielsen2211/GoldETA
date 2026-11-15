@@ -418,7 +418,39 @@ f:SetSize(W, 120)
 skin(f, "Panel", 520, 1024)
 movable(f, function() return not DB.locked end)
 -- vinduet haenger altid i sit oeverste venstre hjoerne, saa det kun vokser nedad (fx naar en farm run starter)
+-- ---------- LevelETA og GoldETA klikker sammen i stedet for at ligge oven i hinanden ----------
+-- finder den naermeste side af other (under, over, hoejre, venstre), hvis me er taet paa eller overlapper.
+-- Returnerer siden og me's nye oeverste venstre hjoerne i me's egne enheder (fra UIParent nederst til venstre).
+local function snapSide(me, other, reach)
+  if not (other and other.IsShown and other:IsShown() and me.GetLeft and other.GetLeft) then return nil end
+  local s1, s2 = me:GetEffectiveScale(), other:GetEffectiveScale()
+  local l, r, t, b = me:GetLeft(), me:GetRight(), me:GetTop(), me:GetBottom()
+  local L, R, T, B = other:GetLeft(), other:GetRight(), other:GetTop(), other:GetBottom()
+  if not (l and r and t and b and L and R and T and B) then return nil end
+  l, r, t, b, L, R, T, B = l * s1, r * s1, t * s1, b * s1, L * s2, R * s2, T * s2, B * s2
+  local g = 4 * s1
+  local w, h = r - l, t - b
+  local overlap = l < R and r > L and b < T and t > B
+  local best, bd, bx, by
+  for _, c in ipairs({{"below", L, B - g}, {"above", L, T + g + h}, {"right", R + g, T}, {"left", L - g - w, T}}) do
+    local d = math.sqrt((c[2] - l) ^ 2 + (c[3] - t) ^ 2)
+    if not bd or d < bd then best, bd, bx, by = c[1], d, c[2], c[3] end
+  end
+  if overlap or bd <= reach * s1 then return best, bx / s1, by / s1 end
+end
+-- klikket fast paa LevelETA's vindue: foelger med, naar LevelETA flyttes eller skifter hoejde
+local function dock()
+  local le = _G.LevelETAFrame
+  if not (DB.dock and le) then return false end
+  f:ClearAllPoints()
+  if DB.dock == "below" then f:SetPoint("TOPLEFT", le, "BOTTOMLEFT", 0, -4)
+  elseif DB.dock == "above" then f:SetPoint("BOTTOMLEFT", le, "TOPLEFT", 0, 4)
+  elseif DB.dock == "right" then f:SetPoint("TOPLEFT", le, "TOPRIGHT", 4, 0)
+  else f:SetPoint("TOPRIGHT", le, "TOPLEFT", -4, 0) end
+  return true
+end
 local function pinTop()
+  if DB.dock and _G.LevelETAFrame then return end  -- haenger fast paa LevelETA
   local l, t = f:GetLeft(), f:GetTop()
   if not (l and t) then return end
   f:ClearAllPoints()
@@ -427,8 +459,10 @@ local function pinTop()
 end
 f:SetScript("OnDragStop", function(self)
   self:StopMovingOrSizing()
-  pinTop()
+  DB.dock = snapSide(self, _G.LevelETAFrame, 30)
+  if not dock() then pinTop() end
 end)
+if f.SetToplevel then f:SetToplevel(true) end  -- det vindue du klikker paa, ligger oeverst
 local fTitle = header(f, "|cffffffffGold|r|cffffd24aETA|r")
 
 
@@ -1709,7 +1743,8 @@ E:SetScript("OnEvent", function(_, event, a1, a2)
       ADB.chars = ADB.chars or {}
       updateLabels()
       f:ClearAllPoints()
-      if DB.point then f:SetPoint(DB.point[1], UIParent, DB.point[2], DB.point[3], DB.point[4])
+      if dock() then -- klikket fast paa LevelETA
+      elseif DB.point then f:SetPoint(DB.point[1], UIParent, DB.point[2], DB.point[3], DB.point[4])
       else f:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -220, -360) end
       placeButton()
     end

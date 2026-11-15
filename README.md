@@ -77,6 +77,8 @@ When [LevelETA](https://github.com/Nielsen2211/LevelETA) is installed:
 
 You can turn this off in GoldETA's settings with **Show in LevelETA's window**.
 
+If you show both windows, drag GoldETA's window next to LevelETA's and it clicks into place under, over, left or right of it. Once docked it follows LevelETA when you move it or when its height changes, so the two never overlap. Drag it away to undock.
+
 ![GoldETA in LevelETA's window](screenshots/goldeta-in-leveleta.png)
 
 ## With auxForever or Auctionator
