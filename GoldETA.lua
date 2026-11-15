@@ -1432,6 +1432,8 @@ local function status(dot, text, ok, yes, no)
   end
 end
 S:SetScript("OnShow", function()
+  -- kun et sæt indstillinger ad gangen: LevelETA's lukkes, naar GoldETA's aabnes
+  if LevelETASettings and LevelETASettings.IsShown and LevelETASettings:IsShown() then LevelETASettings:Hide() end
   updateLabels()
   status(leDot, leText, LE() ~= nil, "leFound", "leMissing")
   status(aucDot, aucText, aucLoaded() and true or false, auxOK() and "auxFound" or "aucFound", "aucMissing")
