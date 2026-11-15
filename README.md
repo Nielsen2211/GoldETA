@@ -55,7 +55,7 @@ A run counts what you loot, not your bag of money. So an item only counts once, 
 
 ## Your goal
 
-The default goal is **Mount, 100 gold**, compared with level 40. In the settings you can pick **Epic mount** (1000 gold, level 60) or set any amount and level. You can also choose to count the items in your bags toward the goal.
+The default goal is **Mount, 100 gold**, compared with level 40. Pick **No goal** if you only want gold per hour, your session and the logs; the goal rows and the section in LevelETA's window are then hidden. In the settings you can pick **Epic mount** (1000 gold, level 60) or set any amount and level. You can also choose to count the items in your bags toward the goal.
 
 Your pace counts all income minus what farming costs you (repairs and flights). Training, AH buys and other shopping are choices, so they do not drag your pace down.
 

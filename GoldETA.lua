@@ -41,7 +41,7 @@ local LOC = {
     winSec = "Window", showWin = "Show window", lock = "Lock window", showMinimap = "Minimap button", size = "Size",
     detailSec = "Details", showDetails = "Show details", showSess = "This session", showSpots = "Best farm spots", showFarms = "Farm log", fuse = "Show in LevelETA's window", countBags = "Count bag items toward goal",
     goalSec = "Goal", goalAmount = "Goal amount", goalLevel = "Compare with level", presets = "Presets",
-    pMount = "Mount", pEpic = "Epic mount", rhythm = "Play time", useRhythm = "Use my play times", wake = "Play from", bed = "Play until",
+    pMount = "Mount", pEpic = "Epic mount", pNone = "No goal", goldW = "Gold", rhythm = "Play time", useRhythm = "Use my play times", wake = "Play from", bed = "Play until",
     rhythmInfo = "Uses LevelETA's play times when it is installed.",
     language = "Language: English", reset = "Reset session", close = "Done",
     standalone = "Works on its own. Fits into LevelETA's window when both are installed.",
@@ -76,7 +76,7 @@ local LOC = {
     winSec = "Vindue", showWin = "Vis vinduet", lock = "Lås vinduet", showMinimap = "Minimap-knap", size = "Størrelse",
     detailSec = "Detaljer", showDetails = "Vis detaljer", showSess = "Denne session", showSpots = "Bedste farm spots", showFarms = "Farm-log", fuse = "Vis i LevelETA's vindue", countBags = "Tæl items i tasken med",
     goalSec = "Mål", goalAmount = "Beløb", goalLevel = "Sammenlign med level", presets = "Forslag",
-    pMount = "Mount", pEpic = "Epic mount", rhythm = "Spilletid", useRhythm = "Brug mine spilletider", wake = "Spiller fra", bed = "Spiller til",
+    pMount = "Mount", pEpic = "Epic mount", pNone = "Intet mål", goldW = "Guld", rhythm = "Spilletid", useRhythm = "Brug mine spilletider", wake = "Spiller fra", bed = "Spiller til",
     rhythmInfo = "Bruger LevelETA's spilletider, når den er installeret.",
     language = "Sprog: Dansk", reset = "Nulstil session", close = "Færdig",
     standalone = "Virker helt alene. Passer ind i LevelETA's vindue, når begge er installeret.",
@@ -758,16 +758,22 @@ local function refresh()
     if DB.run then y = drawRun(y) else runPause:Hide(); runStop:Hide() end
 
     local gi = goalInfo()
-    y = row(y, {kind = "main", title = goalLabel(),
-      value = string.format("%s / %s  |cff5c6270%d%%|r", gold(gi.have), gold(gi.goal), math.floor(gi.frac * 100)), vc = BLUE, frac = gi.frac})
+    if DB.noGoal then
+      y = row(y, {kind = "main", title = T("goldW"), value = money(GetMoney()), vc = BLUE})
+    else
+      y = row(y, {kind = "main", title = goalLabel(),
+        value = string.format("%s / %s  |cff5c6270%d%%|r", gold(gi.have), gold(gi.goal), math.floor(gi.frac * 100)), vc = BLUE, frac = gi.frac})
+    end
     y = row(y, {kind = "main", title = T("gph"), value = gi.r and (money(gi.r * 3600) .. T("perHr")) or T("measuring"), vc = WHITE})
     local net = sessNet()
     y = row(y, {kind = "main", title = T("session") .. " " .. dur(sessTime()), value = (net >= 0 and "+" or "") .. money(net),
       vc = net >= 0 and WHITE or ORANGE})
-    local etaTxt = gi.done and T("readyNow") or (gi.at and nice(gi.at, 15)) or (gi.r and T("notPace")) or T("measuring")
-    y = row(y, {kind = "main", title = string.format(T("ready"), goalLabel()), value = etaTxt, vc = GOLD, line = false})
-    local cl, cc = compareLine(gi)
-    if cl then y = row(y, {kind = "dot", title = cl, tc = {0.75, 0.78, 0.84}, dotc = cc}) end
+    if not DB.noGoal then
+      local etaTxt = gi.done and T("readyNow") or (gi.at and nice(gi.at, 15)) or (gi.r and T("notPace")) or T("measuring")
+      y = row(y, {kind = "main", title = string.format(T("ready"), goalLabel()), value = etaTxt, vc = GOLD, line = false})
+      local cl, cc = compareLine(gi)
+      if cl then y = row(y, {kind = "dot", title = cl, tc = {0.75, 0.78, 0.84}, dotc = cc}) end
+    end
 
     -- chips
     local r15, have15 = paceRate(SHORT)
@@ -823,13 +829,15 @@ local function ridingRank()
 end
 
 local function setGoal(key)
+  if key == "pNone" then DB.noGoal = true; return end  -- intet maal: kun guld i timen, session og logs
+  DB.noGoal = false
   DB.goalName = key
   DB.goal = key == "pEpic" and DB.epicGoal or DB.mountGoal
   DB.goalLevel = key == "pEpic" and 60 or 40
 end
 
 local function autoGoal()
-  if not DB or not DB.goalAuto then return end
+  if not DB or not DB.goalAuto or DB.noGoal then return end
   local r = ridingRank()
   if r >= 150 then return end  -- epic er naaet: behold maalet som det er
   local want = r >= 75 and "pEpic" or "pMount"
@@ -1203,7 +1211,7 @@ do
       return
     end
     local newH = 0
-    if DB.fuse and sec then
+    if DB.fuse and sec and not DB.noGoal then  -- intet maal: intet at vise i LevelETA's vindue
       local gi = goalInfo()
       headT:SetText(string.format(T("goalHead"), goalLabel())); viaT:SetText("")
       local y = -34
@@ -1390,7 +1398,8 @@ local function preset(y, key)
 end
 preset(-114, "pMount")
 preset(-146, "pEpic")
-toggle(-184, "autoGoal", function() return DB.goalAuto end, function(v) DB.goalAuto = v; if v then autoGoal() end end)
+preset(-178, "pNone")
+toggle(-216, "autoGoal", function() return DB.goalAuto end, function(v) DB.goalAuto = v; if v then DB.noGoal = false; autoGoal() end end)
 
 -- fane 3: spilletid
 host = pages[3]
@@ -1488,8 +1497,10 @@ mmb:SetScript("OnEnter", function(self)
   GameTooltip:AddLine(NAME, 1, 0.82, 0.3)
   local gi = goalInfo()
   GameTooltip:AddDoubleLine(T("gph"), gi.r and money(gi.r * 3600) or T("measuring"), 0.85, 0.85, 0.85, 0.62, 0.82, 1)
-  GameTooltip:AddDoubleLine(string.format(T("ready"), goalLabel()),
-    gi.done and T("readyNow") or (gi.at and nice(gi.at, 15)) or T("measuring"), 0.85, 0.85, 0.85, 1, 0.82, 0)
+  if not DB.noGoal then
+    GameTooltip:AddDoubleLine(string.format(T("ready"), goalLabel()),
+      gi.done and T("readyNow") or (gi.at and nice(gi.at, 15)) or T("measuring"), 0.85, 0.85, 0.85, 1, 0.82, 0)
+  end
   -- alle karakterer paa kontoen
   local list, sum = {}, 0
   for _, c in pairs(ADB.chars) do list[#list + 1] = c; sum = sum + (c.m or 0) end
