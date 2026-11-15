@@ -28,13 +28,17 @@ Click **GoldETA** at the top of the window to show the details:
 
 - **This session**: your income and spending split into categories
 - **Best farm spots**: gold per hour for every zone where you have farmed at least 10 minutes
-- **Farm runs**: your latest runs, with the best one highlighted
+- **Farm log**: your farms sorted by gold per hour, best at the top
 
 ## Farm runs
 
 Click **Farm** at the top of the window (or use `/geta farm`, Shift click the minimap button, or set a key under Key Bindings, AddOns).
 
-While a run is going you see a timer, gold per hour for the run, the total, looted coin, the value of the items you looted, kills and your top loot. You can pause it. When you stop, you can give the run a name (it suggests the zone and the mob you killed the most) and it is saved to your list.
+While a run is going you see a timer, gold per hour for the run, the total, looted coin, the value of the items you looted, kills and your top loot. You can pause it. When you stop, you can give the run a name (it suggests the zone and the mob you killed the most) and it is saved to your farm log.
+
+### Farm log
+
+Every run you save with the same name is added to that farm, so the log shows each farm's real average gold per hour over all its runs, how many runs it has, and your best run. The details show your top 6, and `/geta log` prints the whole log in chat, best first.
 
 A run counts what you loot, not your bag of money. So an item only counts once, even if you sell it to a vendor in the middle of the run.
 
@@ -74,6 +78,7 @@ If auxForever is installed, GoldETA uses its usual AH price for item values (the
 | `/geta` | Settings |
 | `/geta show` | Show or hide the window |
 | `/geta farm` | Start or stop a farm run |
+| `/geta log` | Your farm log in chat, best gold per hour first |
 | `/geta summary` | A short summary of this session |
 
 ## Languages

@@ -25,7 +25,8 @@ local LOC = {
     measuring = "Measuring...", notPace = "Not at this pace", last15 = "last 15 m", inBags = "in bags",
     before = "Ready %s before level %d", after = "%s after level %d", dayFmt = "%d days", oneDay = "1 day",
     goalHead = "%s goal", viaGold = "via GoldETA", goldReady = "Gold ready",
-    sessHead = "This session", net = "Net", spotsHead = "Best farm spots", runsHead = "Farm runs",
+    sessHead = "This session", net = "Net", spotsHead = "Best farm spots", runsHead = "Farm log",
+    logHead = "GoldETA farm log, best gold per hour first", logLine = "%d. %s: %s/hr  (%dx, %s, best run %s/hr)", logTip = "Save a run with the same name to add it to that farm.",
     avgAll = "Average per hour, all time", noSpots = "Farm 10 min in a zone to see it here", noRuns = "No farm runs yet",
     loot = "Looted coin", vendor = "Vendor", quest = "Quests", mail = "Mail and AH", trade = "Trade", otherIn = "Other income",
     repair = "Repairs", flight = "Flights", training = "Training", ahSpend = "Auction House", buy = "Vendor buys", otherOut = "Other spending",
@@ -57,7 +58,8 @@ local LOC = {
     measuring = "Måler...", notPace = "Ikke med dette tempo", last15 = "sidste 15 m", inBags = "i taskerne",
     before = "Klar %s før level %d", after = "%s efter level %d", dayFmt = "%d dage", oneDay = "1 dag",
     goalHead = "Mål: %s", viaGold = "via GoldETA", goldReady = "Guld klar",
-    sessHead = "Denne session", net = "Netto", spotsHead = "Bedste farm spots", runsHead = "Farm runs",
+    sessHead = "Denne session", net = "Netto", spotsHead = "Bedste farm spots", runsHead = "Farm-log",
+    logHead = "GoldETA farm-log, bedste guld pr. time først", logLine = "%d. %s: %s/t  (%dx, %s, bedste run %s/t)", logTip = "Gem et run med samme navn for at lægge det til den farm.",
     avgAll = "Gennemsnit pr. time, i alt", noSpots = "Farm 10 min i en zone for at se den her", noRuns = "Ingen farm runs endnu",
     loot = "Looted coin", vendor = "Vendor", quest = "Quests", mail = "Mail og AH", trade = "Handel", otherIn = "Anden indtægt",
     repair = "Reparation", flight = "Flyveture", training = "Træning", ahSpend = "Auction House", buy = "Køb hos vendor", otherOut = "Andre udgifter",
@@ -580,6 +582,25 @@ do
 end
 
 -- ---------- beregninger til visning ----------
+-- farm-log: alle runs med samme navn laegges sammen til en farm, saa du kan se hvilken der giver mest i timen
+local function addFarm(name, zone, t, v, at)
+  if not name or t <= 0 then return end
+  DB.farms = DB.farms or {}
+  local fm = DB.farms[name]
+  if not fm then fm = {t = 0, v = 0, n = 0, best = 0}; DB.farms[name] = fm end
+  fm.t, fm.v, fm.n = fm.t + t, fm.v + v, fm.n + 1
+  if t >= 300 then fm.best = math.max(fm.best or 0, v / t) end  -- korte runs er for tilfaeldige til "bedste"
+  fm.zone, fm.last = zone or fm.zone, at or time()
+end
+local function farmList()
+  local l = {}
+  for name, fm in pairs(DB.farms or {}) do
+    if fm.t > 0 then l[#l + 1] = {name = name, r = fm.v / fm.t, n = fm.n, t = fm.t, best = fm.best or 0} end
+  end
+  table.sort(l, function(a, b) return a.r > b.r end)
+  return l
+end
+
 local function goalInfo()
   local have = GetMoney() + (DB.countBags and bagValue() or 0)
   local goal = math.max(1, DB.goal)
@@ -698,17 +719,16 @@ local function drawDetails(y)
   -- farm runs
   y = row(y, {kind = "sep"}) - 4
   y = row(y, {kind = "head", title = T("runsHead"), value = ""})
-  if #DB.runs == 0 then
+  local fl = farmList()
+  if #fl == 0 then
     y = row(y, {kind = "small", title = T("noRuns"), value = ""})
   else
-    local best, bi = 0, nil
-    local list = {}
-    for i = #DB.runs, math.max(1, #DB.runs - 5), -1 do list[#list + 1] = DB.runs[i] end
-    for i, r in ipairs(list) do local v = r.v / math.max(1, r.t); if v > best then best, bi = v, i end end
-    for i, r in ipairs(list) do
-      local v = r.v / math.max(1, r.t)
-      y = row(y, {kind = "bar", title = r.name, tc = i == bi and BLUE or GREY, value = money(v * 3600), vc = i == bi and BLUE or WHITE,
-        frac = v / math.max(1e-9, best), fc = BLUE, fa = i == bi and 0.9 or 0.35})
+    -- dine farms sorteret efter guld i timen (alle runs med samme navn lagt sammen), bedste oeverst
+    for i = 1, math.min(6, #fl) do
+      local x = fl[i]
+      local title = x.name .. (x.n > 1 and ("  |cff5c6270" .. x.n .. "x|r") or "")
+      y = row(y, {kind = "bar", title = title, tc = i == 1 and BLUE or GREY, value = money(x.r * 3600), vc = i == 1 and BLUE or WHITE,
+        frac = x.r / math.max(1e-9, fl[1].r), fc = BLUE, fa = i == 1 and 0.9 or 0.35})
     end
   end
   if DB.life.p >= 600 then
@@ -846,6 +866,7 @@ local function finishSave(keep)
   local v = runValue(r)
   table.insert(DB.runs, {name = name, zone = r.zone, t = r.t, v = v, coin = r.coin, vend = r.vend, ah = r.ah, kills = r.kills, at = time()})
   while #DB.runs > 40 do table.remove(DB.runs, 1) end
+  addFarm(name, r.zone, r.t, v, time())
   local rr = r.t > 0 and v / r.t or 0
   toast.show(string.format(T("runSaved"), money(v)), string.format(T("runSub"), dur(r.t), money(rr * 3600), T("perHr")))
   refresh()
@@ -1382,6 +1403,10 @@ E:SetScript("OnEvent", function(_, event, a1, a2)
       GoldETADB = GoldETADB or {}
       DB = GoldETADB
       for k, v in pairs(defaults) do if DB[k] == nil then DB[k] = v end end
+      if not DB.farms then  -- foerste gang: byg farm-loggen ud fra de runs der allerede er gemt
+        DB.farms = {}
+        for _, r in ipairs(DB.runs or {}) do addFarm(r.name, r.zone, r.t or 0, r.v or 0, r.at) end
+      end
       GoldETAAccountDB = GoldETAAccountDB or {}
       ADB = GoldETAAccountDB
       ADB.chars = ADB.chars or {}
@@ -1499,6 +1524,14 @@ SlashCmdList.GOLDETA = function(msg)
   msg = (msg or ""):lower()
   if msg == "farm" then toggleRun()
   elseif msg == "show" or msg == "vis" then toggleWindow()
+  elseif msg == "log" then
+    local fl = farmList()
+    print("|cffffd24a" .. T("logHead") .. "|r")
+    if #fl == 0 then print(T("noRuns")) end
+    for i, x in ipairs(fl) do
+      print(string.format(T("logLine"), i, x.name, money(x.r * 3600), x.n, dur(x.t), money(x.best * 3600)))
+    end
+    if #fl > 0 then print("|cff8c94a3" .. T("logTip") .. "|r") end
   elseif msg == "summary" or msg == "opsummering" then
     local t, net = sessTime(), sessNet()
     toast.show(string.format(T("sessDone"), (net >= 0 and "+" or "") .. money(net)),
