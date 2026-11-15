@@ -1138,6 +1138,7 @@ slider(-146, "wake", 0, 1410, 30, function() return DB.sleepEnd end, function(v)
 slider(-192, "bed", 0, 1410, 30, function() return DB.sleepStart end, function(v) DB.sleepStart = v end, clockFmt)
 colX = COL
 local rInfo = fs(host, F_SEMI, 11); rInfo:SetPoint("TOPLEFT", colX + 18, -116); rInfo:SetTextColor(0.55, 0.58, 0.64)
+rInfo:SetWidth(SW - COL - 36); rInfo:SetJustifyH("LEFT"); rInfo:SetJustifyV("TOP"); if rInfo.SetWordWrap then rInfo:SetWordWrap(true) end  -- bryd linjen, saa den ikke loeber ud over kanten
 label(rInfo, "rhythmInfo")
 host = S
 
