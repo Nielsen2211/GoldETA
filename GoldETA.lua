@@ -327,8 +327,16 @@ local function bagValue() return aucLoaded() and bagCache.a or bagCache.v end
 local function newSession()
   return {start = time(), p0 = DB.play, m0 = GetMoney(), inc = {}, exp = {}}
 end
-local function sessNet() return GetMoney() - (DB.sess.m0 or GetMoney()) end
-local function sessTime() return DB.play - (DB.sess.p0 or DB.play) end
+-- sessionen laves foerst ved login. Nogle haendelser (fx SKILL_LINES_CHANGED) kommer foer det,
+-- saa her sikres der altid en session, i stedet for at falde over en tom DB.sess
+local function sess()
+  if type(DB.sess) ~= "table" then DB.sess = newSession() end
+  if type(DB.sess.inc) ~= "table" then DB.sess.inc = {} end
+  if type(DB.sess.exp) ~= "table" then DB.sess.exp = {} end
+  return DB.sess
+end
+local function sessNet() return GetMoney() - (sess().m0 or GetMoney()) end
+local function sessTime() return DB.play - (sess().p0 or DB.play) end
 
 -- ---------- farm run ----------
 -- en run maaler det du looter (coin + items vaerdi), ikke dine penge. Saa taeller et item kun een gang,
@@ -730,8 +738,8 @@ local function drawDetails(y)
   y = row(y, {kind = "sep"}) - 4
   y = row(y, {kind = "head", title = T("sessHead"), value = ""})
   local items, mx = {}, 1
-  for _, k in ipairs(INC) do local v = DB.sess.inc[k] or 0; if v > 0 then items[#items + 1] = {k, v, false}; mx = math.max(mx, v) end end
-  for _, k in ipairs(EXP) do local v = DB.sess.exp[k] or 0; if v > 0 then items[#items + 1] = {k, v, true}; mx = math.max(mx, v) end end
+  for _, k in ipairs(INC) do local v = sess().inc[k] or 0; if v > 0 then items[#items + 1] = {k, v, false}; mx = math.max(mx, v) end end
+  for _, k in ipairs(EXP) do local v = sess().exp[k] or 0; if v > 0 then items[#items + 1] = {k, v, true}; mx = math.max(mx, v) end end
   if #items == 0 then
     y = row(y, {kind = "small", title = T("measuring"), value = ""})
   else
@@ -1621,10 +1629,10 @@ local function onMoney()
   local cat = category(delta)
   G.add(cat, delta)
   if delta > 0 then
-    DB.sess.inc[cat] = (DB.sess.inc[cat] or 0) + delta
+    sess().inc[cat] = (sess().inc[cat] or 0) + delta
     addPace(delta)
   else
-    DB.sess.exp[cat] = (DB.sess.exp[cat] or 0) - delta
+    sess().exp[cat] = (sess().exp[cat] or 0) - delta
     if PACE_MINUS[cat] then addPace(delta) end
   end
   if cat == "loot" then
@@ -1815,11 +1823,23 @@ end)
 
 -- ---------- uret: et tik i sekundet, intet arbejde i hvert billede ----------
 local acc = 0
+-- Forever skjuler nogle svar for addons ("secret values"): et skjult ja/nej maa ikke testes direkte,
+-- saa her bliver det til false, og tiden taeller videre som normalt
+local function yes(fn, unit)
+  if type(fn) ~= "function" then return false end
+  local ok, v = pcall(fn, unit)
+  if not ok then return false end
+  if type(issecretvalue) == "function" then
+    local okS, hidden = pcall(issecretvalue, v)
+    if not okS or hidden == true then return false end
+  end
+  return v == true
+end
 local function farming()  -- taeller kun tid i en zone, naar du er ude og farme (ikke i byen, paa flyvetur, AFK eller doed)
-  if IsResting and IsResting() then return false end
-  if UnitOnTaxi and UnitOnTaxi("player") then return false end
-  if UnitIsDeadOrGhost and UnitIsDeadOrGhost("player") then return false end
-  if UnitIsAFK and UnitIsAFK("player") then return false end
+  if yes(IsResting) then return false end
+  if yes(UnitOnTaxi, "player") then return false end
+  if yes(UnitIsDeadOrGhost, "player") then return false end
+  if yes(UnitIsAFK, "player") then return false end
   return true
 end
 local function tick(el)
