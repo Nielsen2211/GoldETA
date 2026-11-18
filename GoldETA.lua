@@ -42,7 +42,7 @@ local LOC = {
     detailSec = "Details", showDetails = "Show details", showSess = "This session", showSpots = "Best farm spots", showFarms = "Farm log", fuse = "Show in LevelETA's window", countBags = "Count bag items toward goal",
     goalSec = "Goal", goalAmount = "Goal amount", goalLevel = "Compare with level", presets = "Presets",
     pMount = "Mount", pEpic = "Epic mount", pNone = "No goal", goldW = "Gold", rhythm = "Play time", useRhythm = "Use my play times", wake = "Play from", bed = "Play until",
-    rhythmInfo = "Uses LevelETA's play times when it is installed.",
+    rhythmInfo = "Uses LevelETA's play times when it is installed.", goalHours = "Count in hours of farming", hoursLeft = "%s of farming",
     language = "Language: English", reset = "Reset session", close = "Done",
     standalone = "Works on its own. Fits into LevelETA's window when both are installed.",
     leFound = "LevelETA: found, the goal is shown in its window", leMissing = "LevelETA: not installed",
@@ -77,7 +77,7 @@ local LOC = {
     detailSec = "Detaljer", showDetails = "Vis detaljer", showSess = "Denne session", showSpots = "Bedste farm spots", showFarms = "Farm-log", fuse = "Vis i LevelETA's vindue", countBags = "Tæl items i tasken med",
     goalSec = "Mål", goalAmount = "Beløb", goalLevel = "Sammenlign med level", presets = "Forslag",
     pMount = "Mount", pEpic = "Epic mount", pNone = "Intet mål", goldW = "Guld", rhythm = "Spilletid", useRhythm = "Brug mine spilletider", wake = "Spiller fra", bed = "Spiller til",
-    rhythmInfo = "Bruger LevelETA's spilletider, når den er installeret.",
+    rhythmInfo = "Bruger LevelETA's spilletider, når den er installeret.", goalHours = "Regn i timers farming", hoursLeft = "%s farming",
     language = "Sprog: Dansk", reset = "Nulstil session", close = "Færdig",
     standalone = "Virker helt alene. Passer ind i LevelETA's vindue, når begge er installeret.",
     leFound = "LevelETA: fundet, målet vises i dens vindue", leMissing = "LevelETA: ikke installeret",
@@ -97,7 +97,7 @@ local defaults = {
   play = 0, samples = {}, zones = {}, runs = {}, life = {p = 0, c = 0},
   goal = 1000000, goalName = "pMount", goalLevel = 40, countBags = false,
   goalAuto = true, mountGoal = 1000000, epicGoal = 10000000,
-  schedule = true, sleepStart = 23 * 60, sleepEnd = 7 * 60,
+  schedule = true, sleepStart = 23 * 60, sleepEnd = 7 * 60, goalHours = true,
   scale = 1, lang = "en", locked = false, hidden = false, mmAngle = 225, showMinimap = true,
   showDetails = false, showSess = false, showSpots = false, showFarms = true, fuse = true, tab = 1, scaleFollow = true,
 }
@@ -194,7 +194,7 @@ end
 
 -- klokkeslaet hvor du har spillet playSec sekunder mere
 local function eta(playSec)
-  local api = LE()
+  local api = DB.schedule and LE()   -- slaaet fra: regn med at du spiller videre nu, ogsaa med LevelETA
   if api and api.PlayETA then
     local ok, t = pcall(api.PlayETA, playSec)
     if ok and type(t) == "number" then return t end
@@ -691,6 +691,16 @@ GoldETA_API = {
   end,
 }
 
+-- hvornaar maalet er naaet, som tekst. Med "Regn i timers farming" vises den spilletid, der mangler
+-- med dit guld i timen lige nu ("2t 50m farming"). Ellers en dato ud fra dine spilletider.
+local function etaText(gi)
+  if gi.done then return T("readyNow") end
+  if gi.playSec and DB.goalHours then return string.format(T("hoursLeft"), dur(gi.playSec)) end
+  if gi.at then return nice(gi.at, 15) end
+  if gi.r then return T("notPace") end
+  return T("measuring")
+end
+
 local function compareLine(gi)
   if not gi.levelDiff then return nil end
   if gi.levelDiff >= 0 then return string.format(T("before"), wallDur(gi.levelDiff), DB.goalLevel), {0.36, 1, 0.48} end
@@ -828,7 +838,7 @@ local function refresh()
     y = row(y, {kind = "main", title = T("session") .. " " .. dur(sessTime()), value = (net >= 0 and "+" or "") .. money(net),
       vc = net >= 0 and WHITE or ORANGE})
     if not DB.noGoal then
-      local etaTxt = gi.done and T("readyNow") or (gi.at and nice(gi.at, 15)) or (gi.r and T("notPace")) or T("measuring")
+      local etaTxt = etaText(gi)
       y = row(y, {kind = "main", title = string.format(T("ready"), goalLabel()), value = etaTxt, vc = GOLD, line = false})
       local cl, cc = compareLine(gi)
       if cl then y = row(y, {kind = "dot", title = cl, tc = {0.75, 0.78, 0.84}, dotc = cc}) end
@@ -1288,7 +1298,7 @@ do
       c = sRow(2)
       c:SetHeight(24); c:ClearAllPoints(); c:SetPoint("TOPLEFT", 0, y); c:SetPoint("TOPRIGHT", 0, y)
       c.title:SetText(T("goldReady")); c.title:SetTextColor(0.55, 0.58, 0.64)
-      c.value:SetText("|cffffd24a" .. (gi.done and T("readyNow") or (gi.at and nice(gi.at, 15)) or (gi.r and T("notPace")) or T("measuring")) .. "|r")
+      c.value:SetText("|cffffd24a" .. (etaText(gi)) .. "|r")
       c.track:Hide(); c.fill:Hide(); c.dot:Hide(); c:Show()
       y = y - 24
       local cl, cc = compareLine(gi)
@@ -1467,6 +1477,7 @@ section(-92, "rhythm")
 toggle(-114, "useRhythm", function() return DB.schedule end, function(v) DB.schedule = v end)
 slider(-146, "wake", 0, 1410, 30, function() return DB.sleepEnd end, function(v) DB.sleepEnd = v end, clockFmt)
 slider(-192, "bed", 0, 1410, 30, function() return DB.sleepStart end, function(v) DB.sleepStart = v end, clockFmt)
+toggle(-250, "goalHours", function() return DB.goalHours end, function(v) DB.goalHours = v end)
 colX = COL
 local rInfo = fs(host, F_SEMI, 11); rInfo:SetPoint("TOPLEFT", colX + 18, -116); rInfo:SetTextColor(0.55, 0.58, 0.64)
 rInfo:SetWidth(SW - COL - 36); rInfo:SetJustifyH("LEFT"); rInfo:SetJustifyV("TOP"); if rInfo.SetWordWrap then rInfo:SetWordWrap(true) end  -- bryd linjen, saa den ikke loeber ud over kanten
@@ -1558,7 +1569,7 @@ mmb:SetScript("OnEnter", function(self)
   GameTooltip:AddDoubleLine(T("gph"), gi.r and money(gi.r * 3600) or T("measuring"), 0.85, 0.85, 0.85, 0.62, 0.82, 1)
   if not DB.noGoal then
     GameTooltip:AddDoubleLine(string.format(T("ready"), goalLabel()),
-      gi.done and T("readyNow") or (gi.at and nice(gi.at, 15)) or T("measuring"), 0.85, 0.85, 0.85, 1, 0.82, 0)
+      etaText(gi), 0.85, 0.85, 0.85, 1, 0.82, 0)
   end
   -- alle karakterer paa kontoen
   local list, sum = {}, 0
