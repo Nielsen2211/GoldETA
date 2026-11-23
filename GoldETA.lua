@@ -417,11 +417,16 @@ local function fs(parent, font, size)
   return t
 end
 
-local function skin(frame, prefix, texW, canvasW)
-  -- solid bund under panelet, saa tekst fra et andet vindue aldrig skinner igennem, og vinduet loeftes naar det klikkes
-  local solid = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
-  solid:SetPoint("TOPLEFT", 4, -4); solid:SetPoint("BOTTOMRIGHT", -4, 4); solid:SetColorTexture(0.043, 0.047, 0.063, 1)
+-- lagdeling: klik loefter vinduet, saa to vinduer aldrig blandes
+local function layer(frame, noMouse)
   if frame.SetToplevel then frame:SetToplevel(true) end
+  frame:SetFrameLevel(40)
+  frame:HookScript("OnShow", function(self) self:Raise() end)
+  if not noMouse then frame:EnableMouse(true); frame:HookScript("OnMouseDown", function(self) self:Raise() end) end
+end
+
+local function skin(frame, prefix, texW, canvasW)
+  layer(frame)
   local top = frame:CreateTexture(nil, "BACKGROUND")
   top:SetPoint("TOPLEFT"); top:SetPoint("TOPRIGHT"); top:SetHeight(20)
   top:SetTexture(TEX .. prefix .. "Top"); top:SetTexCoord(0, texW / canvasW, 0, 40 / 64)
@@ -747,7 +752,7 @@ end
 -- ---------- toast (som LevelETA's advarsel) ----------
 local toast = CreateFrame("Button", "GoldETAToast", UIParent)
 toast:SetSize(280, 48); toast:SetPoint("TOP", UIParent, "TOP", 0, -150); toast:SetFrameStrata("HIGH"); toast:Hide()
-skin(toast, "Panel", 520, 1024)
+skin(toast, "Panel", 520, 1024); toast:EnableMouse(false)
 do
   local icon = toast:CreateTexture(nil, "ARTWORK"); icon:SetSize(26, 26); icon:SetPoint("LEFT", 12, 0); icon:SetTexture(LOGO)
   local title = fs(toast, F_BOLD, 13); title:SetPoint("TOPLEFT", 48, -9); title:SetTextColor(1, 0.82, 0.29)
@@ -1446,7 +1451,7 @@ do
       end
     end
   end
-  g:SetScript("OnShow", function() G.draw() end)
+  g:SetScript("OnShow", function() G.draw() end); g:HookScript("OnShow", function(self) self:Raise() end)
   G.toggle = function() if g:IsShown() then g:Hide() else g:Show() end end
   graphBtn:SetScript("OnClick", G.toggle)
 end
@@ -1734,6 +1739,7 @@ S:SetScript("OnShow", function()
   for _, c in ipairs(controls) do c.load() end
   showTab(DB.tab or 1)
 end)
+S:HookScript("OnShow", function(self) self:Raise() end)
 
 toggleSettings = function() S:SetShown(not S:IsShown()) end
 setBtn:SetScript("OnClick", function() toggleSettings() end)
@@ -1801,7 +1807,7 @@ do
     else foot:SetText(string.format(T("charsEnough"), enough, #list, gold(DB.goal))) end
     c:SetHeight(48 + math.max(n, 1) * RH + 34)
   end
-  c:SetScript("OnShow", CH.draw)
+  c:SetScript("OnShow", CH.draw); c:HookScript("OnShow", function(self) self:Raise() end)
   CH.toggle = function() c:SetShown(not c:IsShown()) end
 end
 
