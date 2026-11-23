@@ -23,7 +23,7 @@ Every amount is shown with the game's own gold, silver and copper icons.
 
 ## The window
 
-GoldETA starts simple: your gold per hour, your goal with a progress bar and when you will reach it, and one button to start a farm run. Click **More** to show everything else (session, last 15 minutes, the graph, your sources of gold, best farms and the farm log). Right click the window to switch between the normal window, only the numbers, and one line. **Characters** shows all your characters.
+GoldETA starts small, with just your gold per hour. Click it to unfold the window, and it remembers how you left it, per character. The unfolded window shows your gold per hour, your goal with a progress bar and when you will reach it, and one button to start a farm run. Click **More** to show everything else (session, last 15 minutes, the graph, your sources of gold, best farms and the farm log). Right click the window to switch between the normal window, only the numbers, and one line. **Characters** shows all your characters.
 
 The older rows below are still all there under **More**.
 
