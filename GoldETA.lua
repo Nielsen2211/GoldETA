@@ -470,31 +470,13 @@ local function pill(parent, text, w, h)
   b.paint = function(self, r, g, bl)
     self.r, self.g, self.b = r, g, bl
     self.text:SetTextColor(r, g, bl)
-    if self.solid then return end
-    if r > g + 0.15 then self.bg:SetVertexColor(r, g, bl) else self.bg:SetVertexColor(1, 1, 1) end
-  end
-  -- solid: flad guld hovedknap med moerk tekst
-  b.setSolid = function(self, on)
-    if self.solid == on then return end
-    self.solid = on
-    if on then
-      self.bg:SetTexture(TEX .. "PillSolid"); self.bg:SetVertexColor(1, 0.82, 0.29)
-      self.text:SetFont(F_BOLD, (h and h < 22) and 11 or 12); self.text:SetTextColor(0.1, 0.08, 0)
-    else
-      self.bg:SetTexture(TEX .. "Pill"); self.bg:SetVertexColor(1, 1, 1)
-      self.text:SetFont(F_SEMI, (h and h < 22) and 11 or 12); self.text:SetTextColor(self.r, self.g, self.b)
-    end
-    self.bg:SetTexCoord(0, 240 / 256, 0, 48 / 64)
-    -- et nyt skrifttypesnit kan nulstille teksten: saet den igen (og glem den gemte, saa den ikke springes over)
-    local t = self.text._txt; self.text._txt = nil
-    if t then self.text:SetText(t) end
   end
   b:SetScript("OnEnter", function()
-    if b.solid then b.bg:SetVertexColor(1, 0.88, 0.45) else b.hl:SetAlpha(0.09); b.text:SetTextColor(1, 1, 1) end
+    b.text:SetTextColor(1, 0.82, 0.29)
     if b.tip then GameTooltip:SetOwner(b, "ANCHOR_BOTTOM"); GameTooltip:AddLine(b.tip(), 0.9, 0.9, 0.9); GameTooltip:Show() end
   end)
   b:SetScript("OnLeave", function()
-    if b.solid then b.bg:SetVertexColor(1, 0.82, 0.29) else b.hl:SetAlpha(0); b.text:SetTextColor(b.r, b.g, b.b) end
+    b.text:SetTextColor(b.r, b.g, b.b)
     if b.tip then GameTooltip:Hide() end
   end)
   return b
@@ -1123,7 +1105,7 @@ end
 
 -- ---------- gem farm run ----------
 local saveFrame = CreateFrame("Frame", "GoldETASave", UIParent)
-saveFrame:SetSize(300, 132); saveFrame:SetPoint("CENTER", 0, 120); saveFrame:SetFrameStrata("DIALOG"); saveFrame:Hide()
+saveFrame:SetSize(300, 132); saveFrame:SetPoint("CENTER", 0, 120); saveFrame:SetFrameStrata("HIGH"); saveFrame:Hide()
 skin(saveFrame, "Panel", 520, 1024)
 movable(saveFrame, function() return true end)
 saveFrame:SetScript("OnDragStop", saveFrame.StopMovingOrSizing)
@@ -1247,9 +1229,9 @@ do
     repair = {1, 0.45, 0.45}, flight = {0.38, 0.62, 1}, training = {0.72, 0.52, 1}, ahSpend = {0.95, 0.62, 0.18},
     buy = {0.22, 0.78, 0.58}, otherOut = {0.62, 0.64, 0.7}, net = {1, 0.82, 0.29},
   }
-  local GW, X0, CW, CH, TOPY = 620, 64, 330, 200, -112  -- bredt nok til forklaringen med store beloeb
+  local GW, X0, CW, CH, TOPY = 520, 64, 230, 200, -112
   local g = CreateFrame("Frame", "GoldETAGraph", UIParent)
-  g:SetSize(GW, 362); g:SetPoint("CENTER"); g:SetFrameStrata("DIALOG"); g:Hide()
+  g:SetSize(GW, 362); g:SetPoint("CENTER"); g:SetFrameStrata("HIGH"); g:Hide()
   skin(g, "Wide", 1040, 2048)
   movable(g, function() return true end)
   g:SetScript("OnDragStop", g.StopMovingOrSizing)
@@ -1563,7 +1545,7 @@ local S, controls, toggleSettings, toggleWindow
 do
 local SW, COL = 520, 260
 S = CreateFrame("Frame", "GoldETASettings", UIParent)
-S:SetSize(SW, 430); S:SetPoint("CENTER"); S:SetFrameStrata("DIALOG"); S:Hide()
+S:SetSize(SW, 430); S:SetPoint("CENTER"); S:SetFrameStrata("HIGH"); S:Hide()
 skin(S, "Wide", 1040, 2048)
 movable(S, function() return true end)
 S:SetScript("OnDragStop", S.StopMovingOrSizing)
@@ -1716,7 +1698,7 @@ slider(-192, "bed", 0, 1410, 30, function() return DB.sleepStart end, function(v
 toggle(-250, "goalHours", function() return DB.goalHours end, function(v) DB.goalHours = v end)
 colX = COL
 local rInfo = fs(host, F_SEMI, 11); rInfo:SetPoint("TOPLEFT", colX + 18, -116); rInfo:SetTextColor(0.55, 0.58, 0.64)
-rInfo:SetWidth(SW - COL - 36); rInfo:SetJustifyH("LEFT"); rInfo:SetJustifyV("TOP"); if rInfo.SetWordWrap then rInfo:SetWordWrap(true) end  -- bryd linjen, saa den ikke loeber ud over kanten
+rInfo:SetWidth(SW - COL - 36); rInfo:SetJustifyH("LEFT"); rInfo:SetJustifyV("TOP"); if rInfo.SetWordWrap then rInfo:SetWordWrap(true) end; if rInfo.SetMaxLines then rInfo:SetMaxLines(0) end  -- bryd linjen, saa den ikke loeber ud over kanten
 label(rInfo, "rhythmInfo")
 host = S
 
@@ -1771,7 +1753,7 @@ end
 do
   local ROWS, RH = 14, 22
   local c = CreateFrame("Frame", "GoldETACharacters", UIParent)
-  c:SetSize(330, 120); c:SetPoint("CENTER", 0, 60); c:SetFrameStrata("DIALOG"); c:Hide()
+  c:SetSize(330, 120); c:SetPoint("CENTER", 0, 60); c:SetFrameStrata("HIGH"); c:Hide()
   skin(c, "Panel", 520, 1024)
   movable(c, function() return true end)
   c:SetScript("OnDragStop", c.StopMovingOrSizing)
