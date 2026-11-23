@@ -50,8 +50,8 @@ local LOC = {
     tipLeft = "Left click: show or hide", tipRight = "Right click: settings", tipShift = "Shift click: start or stop farming",
     chars = "Characters", allChars = "All characters", gph = "Gold per hour", none = "none",
     charsBtn = "Chars", charsTitle = "Characters", charsTotal = "Total", charsNone = "Log in with your other characters to see them here",
-    charsEnough = "%d of %d characters have %s", last4 = "Last 4 hours", avgW = "avg %s", compactW = "Compact window", sparkW = "Gold per hour graph",
-    amFound = "AuctionMaster: found, AH prices are used", tipCompact = "Right click the window: compact or full",
+    charsEnough = "%d of %d characters have %s", last4 = "Last 4 hours", avgW = "avg %s", compactW = "Compact window", simpleW = "Only gold per hour", gphShort = "Gold/hr", sparkW = "Gold per hour graph",
+    amFound = "AuctionMaster: found, AH prices are used", tipCompact = "Right click the window: full, compact, only gold per hour",
     expand = "Click: show or hide details",
     autoGoal = "Next goal automatically", mountDone = "You have your mount!", nextEpic = "New goal: Epic mount",
   },
@@ -88,8 +88,8 @@ local LOC = {
     tipLeft = "Venstreklik: vis eller skjul", tipRight = "Højreklik: indstillinger", tipShift = "Shift-klik: start eller stop farm",
     chars = "Karakterer", allChars = "Alle karakterer", gph = "Guld pr. time", none = "ingen",
     charsBtn = "Kar.", charsTitle = "Karakterer", charsTotal = "I alt", charsNone = "Log ind med dine andre karakterer for at se dem her",
-    charsEnough = "%d af %d karakterer har %s", last4 = "Sidste 4 timer", avgW = "gns. %s", compactW = "Kompakt vindue", sparkW = "Graf over guld pr. time",
-    amFound = "AuctionMaster: fundet, AH-priser bruges", tipCompact = "Højreklik på vinduet: kompakt eller fuld",
+    charsEnough = "%d af %d karakterer har %s", last4 = "Sidste 4 timer", avgW = "gns. %s", compactW = "Kompakt vindue", simpleW = "Kun guld pr. time", gphShort = "Guld/t", sparkW = "Graf over guld pr. time",
+    amFound = "AuctionMaster: fundet, AH-priser bruges", tipCompact = "Højreklik på vinduet: fuld, kompakt, kun guld pr. time",
     expand = "Klik: vis eller skjul detaljer",
     autoGoal = "Næste mål automatisk", mountDone = "Du har dit mount!", nextEpic = "Nyt mål: Epic mount",
   },
@@ -105,7 +105,7 @@ local defaults = {
   goalAuto = true, mountGoal = 1000000, epicGoal = 10000000,
   schedule = true, sleepStart = 23 * 60, sleepEnd = 7 * 60, goalHours = true,
   scale = 1, lang = "en", locked = false, hidden = false, mmAngle = 225, showMinimap = true,
-  showDetails = false, showSpark = true, compact = false, showSess = false, showSpots = false, showFarms = true, fuse = true, tab = 1, scaleFollow = true,
+  showDetails = false, showSpark = true, compact = false, simple = false, showSess = false, showSpots = false, showFarms = true, fuse = true, tab = 1, scaleFollow = true,
 }
 
 local INC = {"loot", "vendor", "quest", "mail", "trade", "otherIn"}
@@ -425,7 +425,7 @@ local function header(frame, titleText)
   local line = frame:CreateTexture(nil, "ARTWORK")
   line:SetSize(22, 2); line:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -5)
   line:SetColorTexture(1, 0.8, 0.35, 0.9)
-  return title
+  return title, line
 end
 
 local function movable(frame, canMove)
@@ -530,7 +530,7 @@ f:SetScript("OnDragStop", function(self)
   if not dock() then pinTop() end
 end)
 if f.SetToplevel then f:SetToplevel(true) end  -- det vindue du klikker paa, ligger oeverst
-local fTitle = header(f, "|cffffffffGold|r|cffffd24aETA|r")
+local fTitle, fLine = header(f, "|cffffffffGold|r|cffffd24aETA|r")
 
 
 local farmBtn = pill(f, nil, 52, 20)
@@ -934,18 +934,24 @@ local function refresh()
     if DB.scaleFollow and LE() and type(LevelETADB) == "table" and type(LevelETADB.scale) == "number" then sc = LevelETADB.scale end
     if f._scale ~= sc then f._scale = sc; f:SetScale(sc) end
     rowN = 0
-    local y = -44
+    local y = DB.simple and -10 or -44
+    -- helt simpelt vindue: kun guld i timen, uden titel og knapper
+    local wantW = DB.simple and 190 or W
+    if f._w ~= wantW then f._w = wantW; f:SetWidth(wantW) end
+    fTitle:SetShown(not DB.simple); fLine:SetShown(not DB.simple)
+    farmBtn:SetShown(not DB.simple); graphBtn:SetShown(not DB.simple); charsBtn:SetShown(not DB.simple)
     if DB.run then y = drawRun(y) else runPause:Hide(); runStop:Hide() end
 
     local gi = goalInfo()
-    if DB.noGoal then
+    if DB.simple then
+    elseif DB.noGoal then
       y = row(y, {kind = "main", title = T("goldW"), value = money(GetMoney()), vc = BLUE})
     else
       y = row(y, {kind = "main", title = goalLabel(),
         value = string.format("%s / %s  |cff5c6270%d%%|r", gold(gi.have), gold(gi.goal), math.floor(gi.frac * 100)), vc = BLUE, frac = gi.frac})
     end
     -- guld i timen: gruen over dit gennemsnit, orange under (sammenlignet med hele din tid)
-    local gTitle, gColor = T("gph"), WHITE
+    local gTitle, gColor = T(DB.simple and "gphShort" or "gph"), WHITE
     if gi.r and DB.life.p >= 1800 and DB.life.c > 0 then
       local avg = DB.life.c / DB.life.p
       local d = gi.r / avg - 1
@@ -953,10 +959,10 @@ local function refresh()
       elseif d <= -0.1 then gColor = ORANGE; gTitle = gTitle .. "  |cffff9959" .. math.floor(d * 100 - 0.5) .. "%|r" end
     end
     y = row(y, {kind = "main", title = gTitle, value = gi.r and (money(gi.r * 3600) .. T("perHr")) or T("measuring"), vc = gColor})
-    if DB.compact then
-      if not DB.noGoal then y = row(y, {kind = "main", title = string.format(T("ready"), goalLabel()), value = etaText(gi), vc = GOLD, line = false}) end
+    if DB.compact or DB.simple then
+      if not DB.noGoal and not DB.simple then y = row(y, {kind = "main", title = string.format(T("ready"), goalLabel()), value = etaText(gi), vc = GOLD, line = false}) end
       chip1:Hide(); chip2:Hide(); spark:Hide()
-      y = y - 6
+      y = y - (DB.simple and 0 or 6)
     else
     if DB.showSpark then y = drawSpark(y) else spark:Hide() end
     local net = sessNet()
@@ -1105,7 +1111,13 @@ local function toggleRun() if DB.run then stopRun() else startRun() end end
 GoldETA_ToggleFarm = function() if DB then toggleRun() end end  -- til keybind
 
 f:SetScript("OnMouseUp", function(_, btn)
-  if btn == "RightButton" and DB then DB.compact = not DB.compact; refresh() end
+  if btn == "RightButton" and DB then
+    -- fuld, kompakt, helt simpel (kun guld i timen), og rundt igen
+    if DB.simple then DB.simple, DB.compact = false, false
+    elseif DB.compact then DB.simple = true
+    else DB.compact = true end
+    refresh()
+  end
 end)
 farmBtn:SetScript("OnClick", toggleRun)
 charsBtn:SetScript("OnClick", function() CH.toggle() end)
@@ -1565,6 +1577,7 @@ toggle(-114, "showWin", function() return not DB.hidden end, function(v) DB.hidd
 toggle(-142, "lock", function() return DB.locked end, function(v) DB.locked = v end)
 toggle(-170, "showMinimap", function() return DB.showMinimap end, function(v) DB.showMinimap = v end)
 toggle(-254, "compactW", function() return DB.compact end, function(v) DB.compact = v end)
+toggle(-280, "simpleW", function() return DB.simple end, function(v) DB.simple = v end)
 slider(-202, "size", 0.6, 2.0, 0.05, function() return f._scale or DB.scale end, function(v) DB.scale = v; DB.scaleFollow = false end, pctFmt)
 colX = COL
 section(-92, "detailSec")
@@ -2098,6 +2111,7 @@ SlashCmdList.GOLDETA = function(msg)
   elseif msg == "graph" or msg == "graf" then G.toggle()
   elseif msg == "chars" or msg == "karakterer" then CH.toggle()
   elseif msg == "compact" or msg == "kompakt" then DB.compact = not DB.compact; refresh()
+  elseif msg == "simple" or msg == "simpel" then DB.simple = not DB.simple; refresh()
   elseif msg == "log" then
     local fl = farmList()
     print("|cffffd24a" .. T("logHead") .. "|r")
