@@ -13,7 +13,7 @@ Part of the ETA family with [LevelETA](https://github.com/Nielsen2211/LevelETA).
 - **Works with LevelETA**: your mount goal shows up in LevelETA's window, and tells you if you have the gold before level 40
 
 - **Small graph** of your gold per hour for the last 4 hours, and gold per hour in green or orange when you are above or below your own average
-- **Compact window**: right click the window (or `/geta compact`) to shrink it to gold per hour and your goal
+- **Compact and simple window**: right click the window to go full, compact (gold per hour and goal) or simple (only gold per hour). Also `/geta compact` and `/geta simple`. Remembered per character
 - **Characters**: gold, gold per hour and goal for every character on your account (`/geta chars`)
 - **AuctionMaster**, auxForever and Auctionator prices for your items
 
@@ -109,6 +109,7 @@ If AuctionMaster is installed, GoldETA uses its market price for item values. Ot
 | `/geta graph` | Your gold history |
 | `/geta chars` | Gold, gold per hour and goal for all your characters |
 | `/geta compact` | Compact or full window |
+| `/geta simple` | Only gold per hour, or back |
 | `/geta log` | Your farm log in chat, best gold per hour first |
 | `/geta summary` | A short summary of this session |
 
