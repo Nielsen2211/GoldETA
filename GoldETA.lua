@@ -922,6 +922,7 @@ local function drawDetails(y)
   return y
 end
 
+local mmWant
 local updateFuse  -- LevelETA-sektionen (defineres laengere nede)
 
 local function refresh()
@@ -1002,7 +1003,8 @@ local function refresh()
   else
     farmBtn.text:SetText(T("farm")); farmBtn:setSolid(true)
   end
-  if GoldETAMinimapButton then GoldETAMinimapButton:SetShown(DB.showMinimap) end
+  -- kun naar indstillingen aendres: en knap-pose maa selv skjule og vise knappen
+  if GoldETAMinimapButton and mmWant ~= DB.showMinimap then mmWant = DB.showMinimap; GoldETAMinimapButton:SetShown(DB.showMinimap) end
   if updateFuse then updateFuse() end
 end
 
@@ -1668,8 +1670,9 @@ end)
 
 toggleSettings = function() S:SetShown(not S:IsShown()) end
 toggleWindow = function()
-  DB.hidden = f:IsShown()
-  if DB.hidden then f:Hide() else refresh() end
+  -- gaar ud fra den gemte tilstand, ikke fra om vinduet lige er synligt (en knap-pose eller andet addon kan klikke uden for vores egen knap)
+  DB.hidden = not DB.hidden
+  if DB.hidden then f:Hide() else f:Show(); refresh() end
   if S:IsShown() then for _, c in ipairs(controls) do c.load() end end
 end
 end
@@ -1763,11 +1766,32 @@ mmb:SetScript("OnDragStart", function(self)
   end)
 end)
 mmb:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
-mmb:SetScript("OnClick", function(_, btn)
+-- et klik, uanset om det kommer fra vores egen knap eller fra en knap-pose, der kalder OnClick selv
+local function mmClick(btn)
+  if not DB then return end
   if IsShiftKeyDown and IsShiftKeyDown() then toggleRun()
   elseif btn == "RightButton" then toggleSettings()
   else toggleWindow() end
-end)
+end
+mmb:SetScript("OnClick", function(_, btn) mmClick(btn) end)
+GoldETA_MinimapClick = mmClick  -- til knap-poser, der vil kalde klikket direkte
+
+-- LibDataBroker: saa knap-poser og bars (ButtonBin, Titan og andre) kan vise GoldETA og klikke paa den
+do
+  local ok, ldb = pcall(function() return LibStub and LibStub("LibDataBroker-1.1", true) end)
+  if ok and ldb then
+    pcall(function()
+      ldb:NewDataObject("GoldETA", {
+        type = "launcher", label = NAME, icon = LOGO,
+        OnClick = function(_, btn) mmClick(btn) end,
+        OnTooltipShow = function(tt)
+          tt:AddLine(NAME, 1, 0.82, 0.3)
+          tt:AddLine(T("tipLeft"), 0.6, 0.6, 0.6); tt:AddLine(T("tipRight"), 0.6, 0.6, 0.6); tt:AddLine(T("tipShift"), 0.6, 0.6, 0.6)
+        end,
+      })
+    end)
+  end
+end
 mmb:SetScript("OnEnter", function(self)
   GameTooltip:SetOwner(self, "ANCHOR_LEFT")
   GameTooltip:AddLine(NAME, 1, 0.82, 0.3)
