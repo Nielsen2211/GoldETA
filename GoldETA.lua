@@ -63,7 +63,7 @@ local LOC = {
     months = {"jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"},
     todayW = "I dag", tomorrowW = "I morgen", at = "%s kl. %02d:%02d", hm = "%dt %02dm",
     perHr = "/t", leftTo = "%s |cff8c94a3til %s|r", of = "af", session = "Session", ready = "%s klar", readyNow = "Klar nu!",
-    measuring = "Måler...", notPace = "Ikke med dette tempo", last15 = "sidste 15 m", inBags = "i taskerne",
+    measuring = "Måler...", notPace = "Ikke i dette tempo", last15 = "sidste 15 m", inBags = "i taskerne",
     before = "Klar %s før level %d", after = "%s efter level %d", dayFmt = "%d dage", oneDay = "1 dag",
     goalHead = "Mål: %s", viaGold = "via GoldETA", goldReady = "Guld klar",
     sessHead = "Denne session", net = "Netto", spotsHead = "Bedste farm spots", runsHead = "Farm-log",
@@ -1254,18 +1254,18 @@ do
   end
   local x = 14
   for _, m in ipairs({{"inc", "income"}, {"exp", "expenses"}, {"net", "netW"}}) do
-    local b = pill(g, nil, 84, 22); b:SetPoint("TOPLEFT", x, -48); label(b.text, m[2]); x = x + 90
+    local b = pill(g, nil, 72, 22); b:SetPoint("TOPLEFT", x, -48); label(b.text, m[2]); x = x + 78
     b:SetScript("OnClick", function() mode = m[1]; paintAll(); G.draw() end)
     modeB[m[1]] = b
   end
-  x = x + 14
+  x = x + 8
   for _, n in ipairs({7, 14, 30}) do
-    local b = pill(g, nil, 48, 22); b:SetPoint("TOPLEFT", x, -48); b.text:SetText(n .. (n == 7 and "d" or "d")); x = x + 54
+    local b = pill(g, nil, 42, 22); b:SetPoint("TOPLEFT", x, -48); b.text:SetText(n .. "d"); x = x + 48
     b:SetScript("OnClick", function() days = n; paintAll(); G.draw() end)
     rangeB[n] = b
   end
-  x = x + 14
-  local cumB = pill(g, nil, 104, 22); cumB:SetPoint("TOPLEFT", x, -48); label(cumB.text, "cumulative")
+  x = x + 8  -- the last pill fills the rest of the row, so it never runs past the window edge
+  local cumB = pill(g, nil, GW - 14 - x, 22); cumB:SetPoint("TOPLEFT", x, -48); label(cumB.text, "cumulative")
   cumB:SetScript("OnClick", function() cum = not cum; if cum then cumB:paint(1, 0.82, 0.4) else cumB:paint(0.55, 0.58, 0.64) end; G.draw() end)
   cumB:paint(0.55, 0.58, 0.64)
   paintAll()
@@ -1698,7 +1698,7 @@ slider(-192, "bed", 0, 1410, 30, function() return DB.sleepStart end, function(v
 toggle(-250, "goalHours", function() return DB.goalHours end, function(v) DB.goalHours = v end)
 colX = COL
 local rInfo = fs(host, F_SEMI, 11); rInfo:SetPoint("TOPLEFT", colX + 18, -116); rInfo:SetTextColor(0.55, 0.58, 0.64)
-rInfo:SetWidth(SW - COL - 36); rInfo:SetJustifyH("LEFT"); rInfo:SetJustifyV("TOP"); if rInfo.SetWordWrap then rInfo:SetWordWrap(true) end; if rInfo.SetMaxLines then rInfo:SetMaxLines(0) end  -- bryd linjen, saa den ikke loeber ud over kanten
+rInfo:SetWidth(SW - COL - 36); rInfo:SetMaxLines(3); rInfo:SetJustifyH("LEFT"); rInfo:SetJustifyV("TOP"); if rInfo.SetWordWrap then rInfo:SetWordWrap(true) end; if rInfo.SetMaxLines then rInfo:SetMaxLines(0) end  -- bryd linjen, saa den ikke loeber ud over kanten
 label(rInfo, "rhythmInfo")
 host = S
 
