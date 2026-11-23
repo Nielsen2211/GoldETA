@@ -49,8 +49,11 @@ local LOC = {
     aucFound = "Auctionator: found, AH prices are used", auxFound = "auxForever: found, AH prices are used", aucMissing = "No AuctionMaster, auxForever or Auctionator, vendor prices are used",
     tipLeft = "Left click: show or hide", tipRight = "Right click: settings", tipShift = "Shift click: start or stop farming",
     chars = "Characters", allChars = "All characters", gph = "Gold per hour", none = "none",
-    charsBtn = "Chars", charsTitle = "Characters", charsTotal = "Total", charsNone = "Log in with your other characters to see them here",
-    charsEnough = "%d of %d characters have %s", last4 = "Last 4 hours", avgW = "avg %s", compactW = "Compact window", simpleW = "Only gold per hour", gphShort = "Gold/hr", sparkW = "Gold per hour graph",
+    gphCap = "GOLD PER HOUR", sessCap = "SESSION %s", last15Cap = "LAST 15 MIN", bagsCap = "IN BAGS", more = "More", less = "Less",
+    startFarm = "Start farm", stopSave = "Stop and save", logBtn = "Farm log", aboveAvg = "%d%% above your average", belowAvg = "%d%% below your average",
+    goalCap = "%s  %s / %s", lootLine = "Looted %s  ·  %d kills", collapse = "Collapse",
+    charsBtn = "Characters", charsTitle = "Characters", charsTotal = "Total", charsNone = "Log in with your other characters to see them here",
+    charsEnough = "%d of %d characters have %s", last4 = "Last 4 hours", avgW = "avg %s", compactW = "One line window", simpleW = "Only gold per hour", gphShort = "Gold/hr", sparkW = "Gold per hour graph",
     amFound = "AuctionMaster: found, AH prices are used", tipCompact = "Right click the window: full, compact, only gold per hour",
     expand = "Click: show or hide details",
     autoGoal = "Next goal automatically", mountDone = "You have your mount!", nextEpic = "New goal: Epic mount",
@@ -87,8 +90,11 @@ local LOC = {
     aucFound = "Auctionator: fundet, AH-priser bruges", auxFound = "auxForever: fundet, AH-priser bruges", aucMissing = "Ingen AuctionMaster, auxForever eller Auctionator, vendor-priser bruges",
     tipLeft = "Venstreklik: vis eller skjul", tipRight = "Højreklik: indstillinger", tipShift = "Shift-klik: start eller stop farm",
     chars = "Karakterer", allChars = "Alle karakterer", gph = "Guld pr. time", none = "ingen",
-    charsBtn = "Kar.", charsTitle = "Karakterer", charsTotal = "I alt", charsNone = "Log ind med dine andre karakterer for at se dem her",
-    charsEnough = "%d af %d karakterer har %s", last4 = "Sidste 4 timer", avgW = "gns. %s", compactW = "Kompakt vindue", simpleW = "Kun guld pr. time", gphShort = "Guld/t", sparkW = "Graf over guld pr. time",
+    gphCap = "GULD PR. TIME", sessCap = "SESSION %s", last15Cap = "SIDSTE 15 MIN", bagsCap = "I TASKERNE", more = "Mere", less = "Mindre",
+    startFarm = "Start farm", stopSave = "Stop og gem", logBtn = "Farm-log", aboveAvg = "%d%% over dit gennemsnit", belowAvg = "%d%% under dit gennemsnit",
+    goalCap = "%s  %s / %s", lootLine = "Looted %s  ·  %d kills", collapse = "Skjul",
+    charsBtn = "Karakterer", charsTitle = "Karakterer", charsTotal = "I alt", charsNone = "Log ind med dine andre karakterer for at se dem her",
+    charsEnough = "%d af %d karakterer har %s", last4 = "Sidste 4 timer", avgW = "gns. %s", compactW = "Vindue med en linje", simpleW = "Kun guld pr. time", gphShort = "Guld/t", sparkW = "Graf over guld pr. time",
     amFound = "AuctionMaster: fundet, AH-priser bruges", tipCompact = "Højreklik på vinduet: fuld, kompakt, kun guld pr. time",
     expand = "Klik: vis eller skjul detaljer",
     autoGoal = "Næste mål automatisk", mountDone = "Du har dit mount!", nextEpic = "Nyt mål: Epic mount",
@@ -105,7 +111,7 @@ local defaults = {
   goalAuto = true, mountGoal = 1000000, epicGoal = 10000000,
   schedule = true, sleepStart = 23 * 60, sleepEnd = 7 * 60, goalHours = true,
   scale = 1, lang = "en", locked = false, hidden = false, mmAngle = 225, showMinimap = true,
-  showDetails = false, showSpark = true, compact = false, simple = false, showSess = false, showSpots = false, showFarms = true, fuse = true, tab = 1, scaleFollow = true,
+  showDetails = false, showSpark = true, view = nil, showSess = false, showSpots = false, showFarms = true, fuse = true, tab = 1, scaleFollow = true,
 }
 
 local INC = {"loot", "vendor", "quest", "mail", "trade", "otherIn"}
@@ -407,6 +413,10 @@ local function fs(parent, font, size)
 end
 
 local function skin(frame, prefix, texW, canvasW)
+  -- solid bund under panelet, saa tekst fra et andet vindue aldrig skinner igennem, og vinduet loeftes naar det klikkes
+  local solid = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
+  solid:SetPoint("TOPLEFT", 4, -4); solid:SetPoint("BOTTOMRIGHT", -4, 4); solid:SetColorTexture(0.043, 0.047, 0.063, 1)
+  if frame.SetToplevel then frame:SetToplevel(true) end
   local top = frame:CreateTexture(nil, "BACKGROUND")
   top:SetPoint("TOPLEFT"); top:SetPoint("TOPRIGHT"); top:SetHeight(20)
   top:SetTexture(TEX .. prefix .. "Top"); top:SetTexCoord(0, texW / canvasW, 0, 40 / 64)
@@ -465,6 +475,9 @@ local function pill(parent, text, w, h)
       self.text:SetFont(F_SEMI, (h and h < 22) and 11 or 12); self.text:SetTextColor(self.r, self.g, self.b)
     end
     self.bg:SetTexCoord(0, 240 / 256, 0, 48 / 64)
+    -- et nyt skrifttypesnit kan nulstille teksten: saet den igen (og glem den gemte, saa den ikke springes over)
+    local t = self.text._txt; self.text._txt = nil
+    if t then self.text:SetText(t) end
   end
   b:SetScript("OnEnter", function()
     if b.solid then b.bg:SetVertexColor(1, 0.88, 0.45) else b.hl:SetAlpha(0.09); b.text:SetTextColor(1, 1, 1) end
@@ -478,7 +491,7 @@ local function pill(parent, text, w, h)
 end
 
 -- ---------- hovedvindue ----------
-local W = 260
+local W = 300
 local IW = W - 28
 local f = CreateFrame("Frame", "GoldETAFrame", UIParent)
 f:SetSize(W, 120)
@@ -531,16 +544,91 @@ f:SetScript("OnDragStop", function(self)
 end)
 if f.SetToplevel then f:SetToplevel(true) end  -- det vindue du klikker paa, ligger oeverst
 local fTitle, fLine = header(f, "|cffffffffGold|r|cffffd24aETA|r")
+fLine:Hide()
+fTitle:ClearAllPoints(); fTitle:SetPoint("LEFT", f, "TOPLEFT", 42, -22)
+local fLogo = f:CreateTexture(nil, "ARTWORK"); fLogo:SetSize(20, 20); fLogo:SetPoint("LEFT", f, "TOPLEFT", 14, -22)
+fLogo:SetTexture("Interface\\Icons\\INV_Misc_Coin_01")
+fLogo:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+-- liste med en linje: guld i timen staar i toppen
+local lineText = fs(f, F_BOLD, 15); lineText:SetPoint("LEFT", f, "TOPLEFT", 42, -22); lineText:Hide()
 
+local function textBtn(parent, size, w, h)
+  local b = CreateFrame("Button", nil, parent)
+  b:SetSize(w, h)
+  b.text = fs(b, F_BOLD, size); b.text:SetPoint("CENTER")
+  b.text:SetTextColor(0.55, 0.58, 0.64)
+  b:SetScript("OnEnter", function() b.text:SetTextColor(1, 1, 1) end)
+  b:SetScript("OnLeave", function() b.text:SetTextColor(0.55, 0.58, 0.64) end)
+  return b
+end
+local closeBtn = textBtn(f, 16, 20, 20); closeBtn:SetPoint("TOPRIGHT", -10, -12); closeBtn.text:SetText("×")
+local lineBtn = textBtn(f, 16, 20, 20); lineBtn:SetPoint("RIGHT", closeBtn, "LEFT", -2, 0); lineBtn.text:SetText("–")
 
-local farmBtn = pill(f, nil, 52, 20)
-farmBtn:SetPoint("TOPRIGHT", -12, -10)
-local graphBtn = pill(f, nil, 46, 20)
-graphBtn:SetPoint("RIGHT", farmBtn, "LEFT", -5, 0); label(graphBtn.text, "graph")
+local farmBtn = pill(f, nil, IW, 28)   -- hovedknap: Start farm
+local graphBtn = pill(f, nil, 80, 24)
+label(graphBtn.text, "graph")
+local logBtn = pill(f, nil, 80, 24); label(logBtn.text, "logBtn")
+local setBtn = pill(f, nil, 80, 24); label(setBtn.text, "settings")
+local moreBtn = textBtn(f, 11, 90, 18); moreBtn.text:ClearAllPoints(); moreBtn.text:SetPoint("LEFT")
 local CH = {}  -- karakter-vinduet (laves laengere nede)
-local charsBtn = pill(f, nil, 40, 20)
-charsBtn:SetPoint("RIGHT", graphBtn, "LEFT", -5, 0); label(charsBtn.text, "charsBtn")
-charsBtn.tip = function() return T("charsTitle") end
+local charsBtn = textBtn(f, 11, 110, 18); charsBtn.text:ClearAllPoints(); charsBtn.text:SetPoint("RIGHT")
+
+-- farver
+local GREY, WHITE, BLUE, GOLD, ORANGE, HEADC = {0.55, 0.58, 0.64}, {0.91, 0.92, 0.94}, {0.62, 0.82, 1}, {1, 0.82, 0.29}, {1, 0.6, 0.35}, {1, 0.82, 0.4}
+local GREEN = {0.5, 0.88, 0.55}
+
+-- kort: solide felter med et lille navn, et stort tal og en undertekst (som CraftETA's kort)
+local cardPool, cardN = {}, 0
+local CARD_BG = {0.071, 0.078, 0.102}
+local function getCard()
+  cardN = cardN + 1
+  local c = cardPool[cardN]
+  if c then return c end
+  c = CreateFrame("Frame", nil, f)
+  c.bg = c:CreateTexture(nil, "BACKGROUND"); c.bg:SetAllPoints(); c.bg:SetColorTexture(CARD_BG[1], CARD_BG[2], CARD_BG[3], 1)
+  c.label = fs(c, F_BOLD, 10); c.label:SetPoint("TOPLEFT", 12, -10); c.label:SetTextColor(0.49, 0.52, 0.58)
+  c.big = fs(c, F_BOLD, 26); c.big:SetPoint("TOPLEFT", 12, -24)
+  c.sub = fs(c, F_SEMI, 11); c.sub:SetTextColor(0.55, 0.58, 0.64)
+  c.left = fs(c, F_SEMI, 11); c.left:SetTextColor(0.55, 0.58, 0.64)
+  c.right = fs(c, F_BOLD, 11); c.right:SetTextColor(1, 0.82, 0.29); c.right:SetJustifyH("RIGHT")
+  c.segs = {}
+  for i = 1, 10 do c.segs[i] = c:CreateTexture(nil, "ARTWORK") end
+  cardPool[cardN] = c
+  return c
+end
+-- o: label, big, bigSize, bigColor, sub, frac (segmenteret bjaelke), left, right
+local function card(x, y, w, h, o)
+  local c = getCard()
+  c:ClearAllPoints(); c:SetPoint("TOPLEFT", f, "TOPLEFT", x, y); c:SetSize(w, h)
+  c.label:SetText(o.label or "")
+  if o.big then
+    local bs = o.bigSize or 26
+    if c._bs ~= bs then c._bs = bs; c.big:SetFont(F_BOLD, bs); c.big._txt = nil end
+    c.big:SetText(o.big); c.big:Show()
+    local bc = o.bigColor or WHITE
+    c.big:SetTextColor(bc[1], bc[2], bc[3])
+    c.big:ClearAllPoints(); c.big:SetPoint("TOPLEFT", 12, -(o.bigY or 24))
+  else c.big:Hide() end
+  c.sub:ClearAllPoints()
+  if o.sub then c.sub:SetPoint("BOTTOMLEFT", 12, 10); c.sub:SetText(o.sub); c.sub:Show() else c.sub:Hide() end
+  if o.frac then
+    local n = math.max(0, math.min(10, math.floor(o.frac * 10 + 0.5)))
+    local segW = (w - 24 - 9 * 2) / 10
+    for i = 1, 10 do
+      local t = c.segs[i]
+      t:ClearAllPoints(); t:SetPoint("TOPLEFT", c, "TOPLEFT", 12 + (i - 1) * (segW + 2), -27); t:SetSize(segW, 5)
+      if i <= n then t:SetColorTexture(1, 0.82, 0.29, 1) else t:SetColorTexture(0.11, 0.12, 0.15, 1) end
+      t:Show()
+    end
+    c.left:ClearAllPoints(); c.left:SetPoint("BOTTOMLEFT", 12, 10); c.left:SetText(o.left or ""); c.left:Show()
+    c.right:ClearAllPoints(); c.right:SetPoint("BOTTOMRIGHT", -12, 10); c.right:SetText(o.right or ""); c.right:Show()
+  else
+    for i = 1, 10 do c.segs[i]:Hide() end
+    c.left:Hide(); c.right:Hide()
+  end
+  c:Show()
+  return c
+end
 
 -- raekker: label til venstre, vaerdi til hoejre, streg eller bjaelke under (samme maal som LevelETA)
 local rowPool, rowN = {}, 0
@@ -608,7 +696,6 @@ local function style(c, kind)
   c.track:SetColorTexture(1, 1, 1, kind == "main" and 0.08 or 0.06)
 end
 
-local GREY, WHITE, BLUE, GOLD, ORANGE, HEADC = {0.55, 0.58, 0.64}, {0.91, 0.92, 0.94}, {0.62, 0.82, 1}, {1, 0.82, 0.29}, {1, 0.6, 0.35}, {1, 0.82, 0.4}
 local function col(fsObj, c) fsObj:SetTextColor(c[1], c[2], c[3]) end
 
 -- tegn en raekke. o = {kind, title, value, tc, vc, frac, fc (bjaelkens farve), fa (alpha), line, dotc}
@@ -821,12 +908,6 @@ end
 -- ---------- tegn vinduet ----------
 local function drawRun(y)
   local r = DB.run
-  local t = runTime(r)
-  local rr = runRate(r)
-  y = row(y, {kind = "main", title = string.format(T(r.paused and "paused" or "farming"), stopwatch(t)),
-    tc = r.paused and GREY or {1, 0.45, 0.4}, value = rr and (money(rr * 3600) .. T("perHr")) or T("measuring"), vc = BLUE})
-  y = row(y, {kind = "main", title = r.zone, value = money(runValue(r)), vc = GOLD})
-  y = y - 4
   y = row(y, {kind = "small", title = T("coin"), value = money(r.coin), vc = WHITE})
   y = row(y, {kind = "small", title = T("itemsV"), value = money(r.vend), vc = WHITE})
   if aucLoaded() then y = row(y, {kind = "small", title = T("itemsA"), value = money(r.ah), vc = BLUE}) end
@@ -844,13 +925,7 @@ local function drawRun(y)
       y = row(y, {kind = "small", title = name .. " ×" .. x.n, value = money(x.v), vc = WHITE})
     end
   end
-  y = y - 6
-  runPause:ClearAllPoints(); runPause:SetPoint("TOPLEFT", 14, y); runPause:Show()
-  runPause.text:SetText(T(r.paused and "resume" or "pause"))
-  runStop:ClearAllPoints(); runStop:SetPoint("TOPRIGHT", -14, y); runStop:Show()
-  runStop.text:SetText(T("stop"))
-  y = y - 28
-  return row(y, {kind = "sep"}) - 6
+  return y - 6
 end
 
 local function drawDetails(y)
@@ -925,84 +1000,114 @@ end
 local mmWant
 local updateFuse  -- LevelETA-sektionen (defineres laengere nede)
 
+local function hideLayout()
+  for i = 1, #cardPool do cardPool[i]:Hide() end
+  for i = 1, #rowPool do rowPool[i]:Hide() end
+  spark:Hide(); chip1:Hide(); chip2:Hide()
+  runPause:Hide(); runStop:Hide(); farmBtn:Hide(); graphBtn:Hide(); logBtn:Hide(); setBtn:Hide()
+  moreBtn:Hide(); charsBtn:Hide()
+end
+
 local function refresh()
   if not DB then return end
-  local fused = DB.fuse and LE()
   if DB.hidden then
     f:Hide()
   else
     local sc = DB.scale
     if DB.scaleFollow and LE() and type(LevelETADB) == "table" and type(LevelETADB.scale) == "number" then sc = LevelETADB.scale end
     if f._scale ~= sc then f._scale = sc; f:SetScale(sc) end
-    rowN = 0
-    local y = DB.simple and -10 or -44
-    -- helt simpelt vindue: kun guld i timen, uden titel og knapper
-    local wantW = DB.simple and 190 or W
+    rowN, cardN = 0, 0
+    hideLayout()
+    local view = DB.view or "simple"
+    local micro, line = view == "micro", view == "line"
+    local wantW = micro and 190 or (line and 220 or W)
     if f._w ~= wantW then f._w = wantW; f:SetWidth(wantW) end
-    fTitle:SetShown(not DB.simple); fLine:SetShown(not DB.simple)
-    farmBtn:SetShown(not DB.simple); graphBtn:SetShown(not DB.simple); charsBtn:SetShown(not DB.simple)
-    if DB.run then y = drawRun(y) else runPause:Hide(); runStop:Hide() end
+    fLogo:SetShown(not micro); fTitle:SetShown(not micro and not line); lineText:SetShown(line)
+    closeBtn:SetShown(not micro); lineBtn:SetShown(not micro)
 
     local gi = goalInfo()
-    if DB.simple then
-    elseif DB.noGoal then
-      y = row(y, {kind = "main", title = T("goldW"), value = money(GetMoney()), vc = BLUE})
-    else
-      y = row(y, {kind = "main", title = goalLabel(),
-        value = string.format("%s / %s  |cff5c6270%d%%|r", gold(gi.have), gold(gi.goal), math.floor(gi.frac * 100)), vc = BLUE, frac = gi.frac})
+    -- guld i timen: groen over dit gennemsnit, orange under (kun naar den ikke er nul)
+    local gColor, delta = WHITE, nil
+    if gi.r and gi.r > 0 and DB.life.p >= 1800 and DB.life.c > 0 then
+      local d = gi.r / (DB.life.c / DB.life.p) - 1
+      if d >= 0.1 then gColor = GREEN; delta = string.format(T("aboveAvg"), math.floor(d * 100 + 0.5))
+      elseif d <= -0.1 then gColor = ORANGE; delta = string.format(T("belowAvg"), math.min(99, math.floor(-d * 100 + 0.5))) end
     end
-    -- guld i timen: gruen over dit gennemsnit, orange under (sammenlignet med hele din tid)
-    local gTitle, gColor = T(DB.simple and "gphShort" or "gph"), WHITE
-    if gi.r and DB.life.p >= 1800 and DB.life.c > 0 then
-      local avg = DB.life.c / DB.life.p
-      local d = gi.r / avg - 1
-      if d >= 0.1 then gColor = {0.5, 0.88, 0.55}; gTitle = gTitle .. "  |cff80e08c+" .. math.floor(d * 100 + 0.5) .. "%|r"
-      elseif d <= -0.1 then gColor = ORANGE; gTitle = gTitle .. "  |cffff9959" .. math.floor(d * 100 - 0.5) .. "%|r" end
-    end
-    y = row(y, {kind = "main", title = gTitle, value = gi.r and (money(gi.r * 3600) .. T("perHr")) or T("measuring"), vc = gColor})
-    if DB.compact or DB.simple then
-      if not DB.noGoal and not DB.simple then y = row(y, {kind = "main", title = string.format(T("ready"), goalLabel()), value = etaText(gi), vc = GOLD, line = false}) end
-      chip1:Hide(); chip2:Hide(); spark:Hide()
-      y = y - (DB.simple and 0 or 6)
-    else
-    if DB.showSpark then y = drawSpark(y) else spark:Hide() end
-    local net = sessNet()
-    y = row(y, {kind = "main", title = T("session") .. " " .. dur(sessTime()), value = (net >= 0 and "+" or "") .. money(net),
-      vc = net >= 0 and WHITE or ORANGE})
-    if not DB.noGoal then
-      local etaTxt = etaText(gi)
-      y = row(y, {kind = "main", title = string.format(T("ready"), goalLabel()), value = etaTxt, vc = GOLD, line = false})
-      local cl, cc = compareLine(gi)
-      if cl then y = row(y, {kind = "dot", title = cl, tc = {0.75, 0.78, 0.84}, dotc = cc}) end
-    end
+    local gphText = gi.r and (money(gi.r * 3600) .. "|cff8c94a3" .. T("perHr") .. "|r") or T("measuring")
+    local run = DB.run
+    local y = -44
+    local w = wantW - 28
 
-    -- chips
-    local r15, have15 = paceRate(SHORT)
-    y = y - 6
-    chip1:ClearAllPoints(); chip1:SetPoint("TOPLEFT", 14, y)
-    if r15 and have15 >= 300 then
-      chip1:SetText("|cff9fd0ff" .. money(r15 * 3600) .. "|r |cff8c94a3" .. T("last15") .. "|r"); chip1:Show()
-    else chip1:SetText(""); chip1:Hide() end
-    chip2:ClearAllPoints()
-    if chip1:IsShown() then chip2:SetPoint("LEFT", chip1, "RIGHT", 14, 0) else chip2:SetPoint("TOPLEFT", 14, y) end
-    chip2:SetText("|cff9fd0ff" .. money(bagValue()) .. "|r |cff8c94a3" .. T("inBags") .. "|r")
-    y = y - 16
+    if line then
+      lineText:SetText(gphText); lineText:SetTextColor(gColor[1], gColor[2], gColor[3])
+      y = -32
+    elseif micro then
+      card(8, -8, wantW - 16, 50, {label = T("gphCap"), big = gphText, bigSize = 19, bigColor = gColor, bigY = 24})
+      y = -50
+    else
+      -- toppen: guld i timen (eller den kørende farm)
+      if run then
+        local rr = runRate(run)
+        card(14, y, w, 78, {label = string.format(T(run.paused and "paused" or "farming"), stopwatch(runTime(run))) .. "  ·  " .. run.zone,
+          big = rr and (money(rr * 3600) .. "|cff8c94a3" .. T("perHr") .. "|r") or T("measuring"), bigColor = GOLD,
+          sub = string.format(T("lootLine"), money(runValue(run)), run.kills)})
+      else
+        card(14, y, w, 78, {label = T("gphCap"), big = gphText, bigColor = gColor, sub = delta})
+      end
+      y = y - 86
+      -- maalet
+      if not DB.noGoal then
+        card(14, y, w, 62, {label = string.format(T("goalCap"), goalLabel(), gold(gi.have), gold(gi.goal)), frac = gi.frac,
+          left = math.floor(gi.frac * 100) .. "%", right = etaText(gi)})
+        y = y - 70
+        local cl, cc = compareLine(gi)
+        if cl and view == "more" then y = row(y, {kind = "dot", title = cl, tc = {0.75, 0.78, 0.84}, dotc = cc}) end
+      end
+      -- knapper: start farm, eller pause og stop
+      if run then
+        runPause:ClearAllPoints(); runPause:SetPoint("TOPLEFT", f, "TOPLEFT", 14, y); runPause:SetSize((w - 8) / 2, 28); runPause:Show()
+        runPause.text:SetText(T(run.paused and "resume" or "pause"))
+        runStop:ClearAllPoints(); runStop:SetPoint("TOPRIGHT", f, "TOPRIGHT", -14, y); runStop:SetSize((w - 8) / 2, 28); runStop:Show()
+        runStop.text:SetText(T("stopSave"))
+      else
+        farmBtn:ClearAllPoints(); farmBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 14, y); farmBtn:SetSize(w, 28); farmBtn:Show()
+        farmBtn.text:SetText(T("startFarm")); farmBtn:setSolid(true)
+      end
+      y = y - 38
+      -- bunden: mere eller mindre, og karakterer
+      moreBtn:ClearAllPoints(); moreBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 14, y); moreBtn:Show()
+      moreBtn.text:SetText((view == "more" and T("less") or T("more")) .. (view == "more" and "  ▾" or "  ▸"))
+      charsBtn:ClearAllPoints(); charsBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -14, y); charsBtn:Show()
+      charsBtn.text:SetText(T("charsBtn"))
+      y = y - 24
 
-    if DB.showSess or DB.showSpots or DB.showFarms then y = drawDetails(y - 4) end
+      if view == "more" then
+        -- session og de sidste 15 minutter
+        local net = sessNet()
+        local r15, have15 = paceRate(SHORT)
+        local hw = (w - 8) / 2
+        card(14, y, hw, 56, {label = string.format(T("sessCap"), dur(sessTime())), big = (net >= 0 and "+" or "") .. money(net),
+          bigSize = 15, bigColor = net >= 0 and WHITE or ORANGE, bigY = 28})
+        card(14 + hw + 8, y, hw, 56, {label = T("last15Cap"), big = (r15 and have15 >= 300) and money(r15 * 3600) or T("measuring"),
+          bigSize = 15, bigColor = WHITE, bigY = 28})
+        y = y - 64
+        if DB.showSpark then y = drawSpark(y) end
+        y = row(y, {kind = "small", title = T("bagsCap"):sub(1, 1) .. T("bagsCap"):sub(2):lower(), value = money(bagValue()), vc = WHITE})
+        if run then y = drawRun(y - 4) end
+        if DB.showSess or DB.showSpots or DB.showFarms then y = drawDetails(y - 4) end
+        -- knapper: graf, farm-log, indstillinger
+        y = y - 8
+        local bw = (w - 12) / 3
+        graphBtn:ClearAllPoints(); graphBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 14, y); graphBtn:SetSize(bw, 24); graphBtn:Show()
+        logBtn:ClearAllPoints(); logBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 14 + bw + 6, y); logBtn:SetSize(bw, 24); logBtn:Show()
+        setBtn:ClearAllPoints(); setBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 14 + (bw + 6) * 2, y); setBtn:SetSize(bw, 24); setBtn:Show()
+        y = y - 32
+      end
     end
-    for i = rowN + 1, #rowPool do rowPool[i]:Hide() end
-    if f._h ~= y then f._h = y; f:SetHeight(-y + 12) end
+    f:SetHeight(-y + 12)
     f:Show()
   end
 
-  -- farm-knappen oeverst
-  if DB.run then
-    farmBtn:setSolid(false)
-    farmBtn.text:SetText(stopwatch(runTime(DB.run)))
-    if DB.run.paused then farmBtn:paint(0.55, 0.58, 0.64) else farmBtn:paint(1, 0.45, 0.4) end
-  else
-    farmBtn.text:SetText(T("farm")); farmBtn:setSolid(true)
-  end
   -- kun naar indstillingen aendres: en knap-pose maa selv skjule og vise knappen
   if GoldETAMinimapButton and mmWant ~= DB.showMinimap then mmWant = DB.showMinimap; GoldETAMinimapButton:SetShown(DB.showMinimap) end
   if updateFuse then updateFuse() end
@@ -1112,19 +1217,28 @@ end
 local function toggleRun() if DB.run then stopRun() else startRun() end end
 GoldETA_ToggleFarm = function() if DB then toggleRun() end end  -- til keybind
 
+-- hoejreklik skifter visning: simpel, kun tal, en linje, og rundt igen
+local NEXT_VIEW = {simple = "micro", more = "micro", micro = "line", line = "simple"}
 f:SetScript("OnMouseUp", function(_, btn)
-  if btn == "RightButton" and DB then
-    -- fuld, kompakt, helt simpel (kun guld i timen), og rundt igen
-    if DB.simple then DB.simple, DB.compact = false, false
-    elseif DB.compact then DB.simple = true
-    else DB.compact = true end
-    refresh()
-  end
+  if btn == "RightButton" and DB then DB.view = NEXT_VIEW[DB.view or "simple"] or "simple"; refresh() end
 end)
 farmBtn:SetScript("OnClick", toggleRun)
 charsBtn:SetScript("OnClick", function() CH.toggle() end)
+moreBtn:SetScript("OnClick", function() DB.view = (DB.view == "more") and "simple" or "more"; refresh() end)
+lineBtn:SetScript("OnClick", function() DB.view = (DB.view == "line") and "simple" or "line"; refresh() end)
+closeBtn:SetScript("OnClick", function() DB.hidden = true; refresh() end)
 runStop:SetScript("OnClick", stopRun)
 runPause:SetScript("OnClick", function() if DB.run then DB.run.paused = not DB.run.paused; refresh() end end)
+local function printFarmLog()
+  local fl = farmList()
+  print("|cffffd24a" .. T("logHead") .. "|r")
+  if #fl == 0 then print(T("noRuns")) end
+  for i, x in ipairs(fl) do
+    print(string.format(T("logLine"), i, x.name, money(x.r * 3600), x.n, dur(x.t), money(x.best * 3600)))
+  end
+  if #fl > 0 then print("|cff8c94a3" .. T("logTip") .. "|r") end
+end
+logBtn:SetScript("OnClick", printFarmLog)
 
 -- ---------- historik og graf: indtaegt og udgifter pr. dag, fordelt paa kilder ----------
 local G = {}
@@ -1578,8 +1692,8 @@ section(-92, "winSec")
 toggle(-114, "showWin", function() return not DB.hidden end, function(v) DB.hidden = not v end)
 toggle(-142, "lock", function() return DB.locked end, function(v) DB.locked = v end)
 toggle(-170, "showMinimap", function() return DB.showMinimap end, function(v) DB.showMinimap = v end)
-toggle(-254, "compactW", function() return DB.compact end, function(v) DB.compact = v end)
-toggle(-280, "simpleW", function() return DB.simple end, function(v) DB.simple = v end)
+toggle(-254, "compactW", function() return DB.view == "line" end, function(v) DB.view = v and "line" or "simple" end)
+toggle(-280, "simpleW", function() return DB.view == "micro" end, function(v) DB.view = v and "micro" or "simple" end)
 slider(-202, "size", 0.6, 2.0, 0.05, function() return f._scale or DB.scale end, function(v) DB.scale = v; DB.scaleFollow = false end, pctFmt)
 colX = COL
 section(-92, "detailSec")
@@ -1669,6 +1783,7 @@ S:SetScript("OnShow", function()
 end)
 
 toggleSettings = function() S:SetShown(not S:IsShown()) end
+setBtn:SetScript("OnClick", function() toggleSettings() end)
 toggleWindow = function()
   -- gaar ud fra den gemte tilstand, ikke fra om vinduet lige er synligt (en knap-pose eller andet addon kan klikke uden for vores egen knap)
   DB.hidden = not DB.hidden
@@ -1984,6 +2099,7 @@ E:SetScript("OnEvent", function(_, event, a1, a2)
       DB = GoldETADB
       if DB.showSess == nil and DB.showDetails then DB.showSess, DB.showSpots, DB.showFarms = true, true, true end
       for k, v in pairs(defaults) do if DB[k] == nil then DB[k] = v end end
+      if DB.view == nil then DB.view = DB.simple and "micro" or (DB.compact and "line" or "simple") end
       if not DB.farms then  -- foerste gang: byg farm-loggen ud fra de runs der allerede er gemt
         DB.farms = {}
         for _, r in ipairs(DB.runs or {}) do addFarm(r.name, r.zone, r.t or 0, r.v or 0, r.at) end
@@ -2134,16 +2250,10 @@ SlashCmdList.GOLDETA = function(msg)
   elseif msg == "show" or msg == "vis" then toggleWindow()
   elseif msg == "graph" or msg == "graf" then G.toggle()
   elseif msg == "chars" or msg == "karakterer" then CH.toggle()
-  elseif msg == "compact" or msg == "kompakt" then DB.compact = not DB.compact; refresh()
-  elseif msg == "simple" or msg == "simpel" then DB.simple = not DB.simple; refresh()
-  elseif msg == "log" then
-    local fl = farmList()
-    print("|cffffd24a" .. T("logHead") .. "|r")
-    if #fl == 0 then print(T("noRuns")) end
-    for i, x in ipairs(fl) do
-      print(string.format(T("logLine"), i, x.name, money(x.r * 3600), x.n, dur(x.t), money(x.best * 3600)))
-    end
-    if #fl > 0 then print("|cff8c94a3" .. T("logTip") .. "|r") end
+  elseif msg == "compact" or msg == "kompakt" then DB.view = (DB.view == "line") and "simple" or "line"; refresh()
+  elseif msg == "simple" or msg == "simpel" then DB.view = (DB.view == "micro") and "simple" or "micro"; refresh()
+  elseif msg == "more" or msg == "mere" then DB.view = (DB.view == "more") and "simple" or "more"; refresh()
+  elseif msg == "log" then printFarmLog()
   elseif msg == "summary" or msg == "opsummering" then
     local t, net = sessTime(), sessNet()
     toast.show(string.format(T("sessDone"), (net >= 0 and "+" or "") .. money(net)),
