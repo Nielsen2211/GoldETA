@@ -1027,6 +1027,7 @@ local function refresh()
       y = y - 18
 
       if view == "more" then
+        local ok, err = pcall(function()
         local net = sessNet()
         y = row(y, {kind = "main", title = T("session") .. " " .. dur(sessTime()), value = (net >= 0 and "+" or "") .. money(net),
           vc = net >= 0 and WHITE or ORANGE})
@@ -1051,6 +1052,12 @@ local function refresh()
         logBtn:ClearAllPoints(); logBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 14, y); logBtn:SetSize(bw, 20); logBtn:Show()
         setBtn:ClearAllPoints(); setBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -14, y); setBtn:SetSize(bw, 20); setBtn:Show()
         y = y - 26
+        end)
+        if not ok and not f._errShown then
+          f._errShown = true
+          print("|cffffd24aGoldETA|r: " .. tostring(err))
+          y = y - 40
+        end
       end
     end
     f:SetHeight(-y + 12)
@@ -1180,7 +1187,16 @@ f:SetScript("OnMouseUp", function(_, btn)
   if not DB then return end
   if btn == "RightButton" then DB.view = NEXT_VIEW[DB.view or "simple"] or "simple"; refresh()
   elseif f._dragged then f._dragged = false  -- et traek er ikke et klik
-  elseif DB.view == "micro" or DB.view == "line" then DB.view = "simple"; refresh() end  -- klik paa det lille vindue: fold ud
+  elseif DB.view == "micro" or DB.view == "line" then DB.view = (DB.bigView == "more") and "more" or "simple"; refresh()  -- klik paa det lille vindue: fold ud
+  else
+    -- klik paa logoet/titlen: lille igen (som i LayerETA). Den store visning huskes
+    local cx, cy = GetCursorPosition()
+    local sc = f:GetEffectiveScale()
+    local top = f:GetTop()
+    if cy and top and sc and sc > 0 and top - cy / sc <= 40 then
+      DB.bigView = DB.view; DB.view = "micro"; refresh()
+    end
+  end
 end)
 farmBtn:SetScript("OnClick", toggleRun)
 charsBtn:SetScript("OnClick", function() CH.toggle() end)
