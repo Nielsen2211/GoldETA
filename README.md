@@ -12,6 +12,11 @@ Part of the ETA family with [LevelETA](https://github.com/Nielsen2211/LevelETA).
 - **Where your gold comes from**: looted coin, vendor, quests, mail and AH, and what you spend on repairs, flights and training
 - **Works with LevelETA**: your mount goal shows up in LevelETA's window, and tells you if you have the gold before level 40
 
+- **Small graph** of your gold per hour for the last 4 hours, and gold per hour in green or orange when you are above or below your own average
+- **Compact window**: right click the window (or `/geta compact`) to shrink it to gold per hour and your goal
+- **Characters**: gold, gold per hour and goal for every character on your account (`/geta chars`)
+- **AuctionMaster**, auxForever and Auctionator prices for your items
+
 Every amount is shown with the game's own gold, silver and copper icons.
 
 ---
@@ -81,9 +86,9 @@ If you show both windows, drag GoldETA's window next to LevelETA's and it clicks
 
 ![GoldETA in LevelETA's window](screenshots/goldeta-in-leveleta.png)
 
-## With auxForever or Auctionator
+## With AuctionMaster, auxForever or Auctionator
 
-If auxForever is installed, GoldETA uses its usual AH price for item values (the same price aux uses to find deals). If not, it uses Auctionator's prices. Without either, vendor prices are used. An item is never valued below its vendor price.
+If AuctionMaster is installed, GoldETA uses its market price for item values. Otherwise, if auxForever is installed, GoldETA uses its usual AH price for item values (the same price aux uses to find deals). If not, it uses Auctionator's prices. Without either, vendor prices are used. An item is never valued below its vendor price.
 
 ## Minimap button
 
@@ -102,6 +107,8 @@ If auxForever is installed, GoldETA uses its usual AH price for item values (the
 | `/geta show` | Show or hide the window |
 | `/geta farm` | Start or stop a farm run |
 | `/geta graph` | Your gold history |
+| `/geta chars` | Gold, gold per hour and goal for all your characters |
+| `/geta compact` | Compact or full window |
 | `/geta log` | Your farm log in chat, best gold per hour first |
 | `/geta summary` | A short summary of this session |
 

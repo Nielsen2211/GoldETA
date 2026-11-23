@@ -46,9 +46,12 @@ local LOC = {
     language = "Language: English", reset = "Reset session", close = "Done",
     standalone = "Works on its own. Fits into LevelETA's window when both are installed.",
     leFound = "LevelETA: found, the goal is shown in its window", leMissing = "LevelETA: not installed",
-    aucFound = "Auctionator: found, AH prices are used", auxFound = "auxForever: found, AH prices are used", aucMissing = "No auxForever or Auctionator, vendor prices are used",
+    aucFound = "Auctionator: found, AH prices are used", auxFound = "auxForever: found, AH prices are used", aucMissing = "No AuctionMaster, auxForever or Auctionator, vendor prices are used",
     tipLeft = "Left click: show or hide", tipRight = "Right click: settings", tipShift = "Shift click: start or stop farming",
     chars = "Characters", allChars = "All characters", gph = "Gold per hour", none = "none",
+    charsBtn = "Chars", charsTitle = "Characters", charsTotal = "Total", charsNone = "Log in with your other characters to see them here",
+    charsEnough = "%d of %d characters have %s", last4 = "Last 4 hours", avgW = "avg %s", compactW = "Compact window", sparkW = "Gold per hour graph",
+    amFound = "AuctionMaster: found, AH prices are used", tipCompact = "Right click the window: compact or full",
     expand = "Click: show or hide details",
     autoGoal = "Next goal automatically", mountDone = "You have your mount!", nextEpic = "New goal: Epic mount",
   },
@@ -81,9 +84,12 @@ local LOC = {
     language = "Sprog: Dansk", reset = "Nulstil session", close = "Færdig",
     standalone = "Virker helt alene. Passer ind i LevelETA's vindue, når begge er installeret.",
     leFound = "LevelETA: fundet, målet vises i dens vindue", leMissing = "LevelETA: ikke installeret",
-    aucFound = "Auctionator: fundet, AH-priser bruges", auxFound = "auxForever: fundet, AH-priser bruges", aucMissing = "Ingen auxForever eller Auctionator, vendor-priser bruges",
+    aucFound = "Auctionator: fundet, AH-priser bruges", auxFound = "auxForever: fundet, AH-priser bruges", aucMissing = "Ingen AuctionMaster, auxForever eller Auctionator, vendor-priser bruges",
     tipLeft = "Venstreklik: vis eller skjul", tipRight = "Højreklik: indstillinger", tipShift = "Shift-klik: start eller stop farm",
     chars = "Karakterer", allChars = "Alle karakterer", gph = "Guld pr. time", none = "ingen",
+    charsBtn = "Kar.", charsTitle = "Karakterer", charsTotal = "I alt", charsNone = "Log ind med dine andre karakterer for at se dem her",
+    charsEnough = "%d af %d karakterer har %s", last4 = "Sidste 4 timer", avgW = "gns. %s", compactW = "Kompakt vindue", sparkW = "Graf over guld pr. time",
+    amFound = "AuctionMaster: fundet, AH-priser bruges", tipCompact = "Højreklik på vinduet: kompakt eller fuld",
     expand = "Klik: vis eller skjul detaljer",
     autoGoal = "Næste mål automatisk", mountDone = "Du har dit mount!", nextEpic = "Nyt mål: Epic mount",
   },
@@ -99,7 +105,7 @@ local defaults = {
   goalAuto = true, mountGoal = 1000000, epicGoal = 10000000,
   schedule = true, sleepStart = 23 * 60, sleepEnd = 7 * 60, goalHours = true,
   scale = 1, lang = "en", locked = false, hidden = false, mmAngle = 225, showMinimap = true,
-  showDetails = false, showSess = false, showSpots = false, showFarms = true, fuse = true, tab = 1, scaleFollow = true,
+  showDetails = false, showSpark = true, compact = false, showSess = false, showSpots = false, showFarms = true, fuse = true, tab = 1, scaleFollow = true,
 }
 
 local INC = {"loot", "vendor", "quest", "mail", "trade", "otherIn"}
@@ -282,14 +288,38 @@ end
 local function auctionator() return type(Auctionator) == "table" and Auctionator.API and Auctionator.API.v1 and Auctionator.API.v1.GetAuctionPriceByItemID end
 -- auxForever har et offentligt API (AuxForeverAPI) med priser fra dens egne AH-scanninger
 local function auxOK() return type(AuxForeverAPI) == "table" and type(AuxForeverAPI.GetUsualPrice) == "function" end
-local function aucLoaded() return auctionator() or auxOK() end
+-- AuctionMaster har intet API, saa dens gemte priser laeses (AuctionMasterDB, per fraktion):
+-- marketPrices.data[id][1] er dens tidsvaegtede markedspris, items.data[id][1] sidste fulde scanning
+local function amFaction()
+  local db = _G.AuctionMasterDB
+  if type(db) ~= "table" or type(db.factions) ~= "table" then return nil end
+  local fac = (UnitFactionGroup and UnitFactionGroup("player")) or "Neutral"
+  local t = db.factions[fac] or db.factions.Neutral
+  return type(t) == "table" and t or nil
+end
+local function amPrice(id)
+  local fa = amFaction()
+  if not fa then return nil end
+  for _, store in ipairs({"marketPrices", "items"}) do
+    local st = type(fa[store]) == "table" and fa[store].data
+    local e = type(st) == "table" and st[id]
+    local v = type(e) == "table" and tonumber(e[1])
+    if v and v > 0 then return math.floor(v) end
+  end
+end
+local function amOK() return amFaction() ~= nil end
+local function aucLoaded() return amOK() or auctionator() or auxOK() end
 
 local function sellPrice(id)
   local ok, v = pcall(function() return select(11, GII(id)) end)
   return (ok and type(v) == "number") and v or 0
 end
 
-local function ahPrice(id)  -- AH-pris fra auxForever eller Auctionator (kun laesning), ellers nil
+local function ahPrice(id)  -- AH-pris fra AuctionMaster, auxForever eller Auctionator (kun laesning), ellers nil
+  if amOK() then
+    local ok, v = pcall(amPrice, id)
+    if ok and type(v) == "number" and v > 0 then return v end
+  end
   if auxOK() then
     -- den saedvanlige pris over de sidste dage; ellers prisen fra sidste fulde scanning
     local ok, v = pcall(AuxForeverAPI.GetUsualPrice, id)
@@ -409,12 +439,41 @@ local function pill(parent, text, w, h)
   b:SetSize(w, h or 24)
   local bg = b:CreateTexture(nil, "BACKGROUND"); bg:SetAllPoints(); bg:SetTexture(TEX .. "Pill"); bg:SetTexCoord(0, 240 / 256, 0, 48 / 64)
   b.bg = bg
+  -- hover: lidt lysere flade (samme form som knappen)
+  local hl = b:CreateTexture(nil, "BORDER"); hl:SetAllPoints(); hl:SetTexture(TEX .. "PillSolid"); hl:SetTexCoord(0, 240 / 256, 0, 48 / 64)
+  hl:SetVertexColor(1, 1, 1); hl:SetAlpha(0)
+  b.hl = hl
   b.text = fs(b, F_SEMI, (h and h < 22) and 11 or 12); b.text:SetPoint("CENTER"); b.text:SetTextColor(0.85, 0.87, 0.92)
   if text then b.text:SetText(text) end
   b.r, b.g, b.b = 0.85, 0.87, 0.92
-  b.paint = function(self, r, g, bl) self.r, self.g, self.b = r, g, bl; self.text:SetTextColor(r, g, bl) end
-  b:SetScript("OnEnter", function() b.text:SetTextColor(1, 0.82, 0.4) end)
-  b:SetScript("OnLeave", function() b.text:SetTextColor(b.r, b.g, b.b) end)
+  -- paint: tekstfarve. Guld eller roed faar ogsaa en kant i samme farve (valgt knap, farm der koerer)
+  b.paint = function(self, r, g, bl)
+    self.r, self.g, self.b = r, g, bl
+    self.text:SetTextColor(r, g, bl)
+    if self.solid then return end
+    if r > g + 0.15 then self.bg:SetVertexColor(r, g, bl) else self.bg:SetVertexColor(1, 1, 1) end
+  end
+  -- solid: flad guld hovedknap med moerk tekst
+  b.setSolid = function(self, on)
+    if self.solid == on then return end
+    self.solid = on
+    if on then
+      self.bg:SetTexture(TEX .. "PillSolid"); self.bg:SetVertexColor(1, 0.82, 0.29)
+      self.text:SetFont(F_BOLD, (h and h < 22) and 11 or 12); self.text:SetTextColor(0.1, 0.08, 0)
+    else
+      self.bg:SetTexture(TEX .. "Pill"); self.bg:SetVertexColor(1, 1, 1)
+      self.text:SetFont(F_SEMI, (h and h < 22) and 11 or 12); self.text:SetTextColor(self.r, self.g, self.b)
+    end
+    self.bg:SetTexCoord(0, 240 / 256, 0, 48 / 64)
+  end
+  b:SetScript("OnEnter", function()
+    if b.solid then b.bg:SetVertexColor(1, 0.88, 0.45) else b.hl:SetAlpha(0.09); b.text:SetTextColor(1, 1, 1) end
+    if b.tip then GameTooltip:SetOwner(b, "ANCHOR_BOTTOM"); GameTooltip:AddLine(b.tip(), 0.9, 0.9, 0.9); GameTooltip:Show() end
+  end)
+  b:SetScript("OnLeave", function()
+    if b.solid then b.bg:SetVertexColor(1, 0.82, 0.29) else b.hl:SetAlpha(0); b.text:SetTextColor(b.r, b.g, b.b) end
+    if b.tip then GameTooltip:Hide() end
+  end)
   return b
 end
 
@@ -474,10 +533,14 @@ if f.SetToplevel then f:SetToplevel(true) end  -- det vindue du klikker paa, lig
 local fTitle = header(f, "|cffffffffGold|r|cffffd24aETA|r")
 
 
-local farmBtn = pill(f, nil, 92, 20)
+local farmBtn = pill(f, nil, 52, 20)
 farmBtn:SetPoint("TOPRIGHT", -12, -10)
-local graphBtn = pill(f, nil, 52, 20)
-graphBtn:SetPoint("RIGHT", farmBtn, "LEFT", -6, 0); label(graphBtn.text, "graph")
+local graphBtn = pill(f, nil, 46, 20)
+graphBtn:SetPoint("RIGHT", farmBtn, "LEFT", -5, 0); label(graphBtn.text, "graph")
+local CH = {}  -- karakter-vinduet (laves laengere nede)
+local charsBtn = pill(f, nil, 40, 20)
+charsBtn:SetPoint("RIGHT", graphBtn, "LEFT", -5, 0); label(charsBtn.text, "charsBtn")
+charsBtn.tip = function() return T("charsTitle") end
 
 -- raekker: label til venstre, vaerdi til hoejre, streg eller bjaelke under (samme maal som LevelETA)
 local rowPool, rowN = {}, 0
@@ -595,6 +658,54 @@ runPause:Hide(); runStop:Hide()
 -- chips under raekkerne: "22g sidste 15 m", "6g 85s i taskerne"
 local chip1 = fs(f, F_SEMI, 11)
 local chip2 = fs(f, F_SEMI, 11)
+
+-- ---------- mini graf: guld i timen de sidste 4 timer, en soejle pr. 10 minutter ----------
+local SP_N, SP_SPAN, SP_H = 24, 600, 34
+local spark = CreateFrame("Frame", nil, f)
+spark.bars = {}
+for i = 1, SP_N do
+  local t = spark:CreateTexture(nil, "ARTWORK"); t:SetColorTexture(0.62, 0.82, 1, 0.4); spark.bars[i] = t
+end
+spark.avgLine = spark:CreateTexture(nil, "OVERLAY"); spark.avgLine:SetHeight(1); spark.avgLine:SetColorTexture(1, 1, 1, 0.28)
+spark.l1 = fs(spark, F_SEMI, 10); spark.l1:SetPoint("BOTTOMLEFT", 0, 0); spark.l1:SetTextColor(0.55, 0.58, 0.64)
+spark.l2 = fs(spark, F_SEMI, 10); spark.l2:SetPoint("BOTTOMRIGHT", 0, 0); spark.l2:SetTextColor(0.55, 0.58, 0.64)
+local function drawSpark(y)
+  local h = DB.hist
+  local sums, cnt, now, filled = {}, {}, time(), 0
+  if h then
+    for _, p in ipairs(h) do
+      local k = SP_N - math.floor((now - p[1]) / SP_SPAN)
+      if k >= 1 and k <= SP_N then
+        if not cnt[k] then filled = filled + 1 end
+        sums[k] = (sums[k] or 0) + p[2]; cnt[k] = (cnt[k] or 0) + 1
+      end
+    end
+  end
+  if filled < 3 then spark:Hide(); return y end
+  local vals, mx, tot, n = {}, 0, 0, 0
+  for k = 1, SP_N do
+    if cnt[k] then vals[k] = sums[k] / cnt[k]; mx = math.max(mx, vals[k]); tot = tot + vals[k]; n = n + 1 end
+  end
+  if mx <= 0 then spark:Hide(); return y end
+  local gap = 2
+  local bw = (IW - gap * (SP_N - 1)) / SP_N
+  spark:ClearAllPoints(); spark:SetPoint("TOPLEFT", 14, y - 8); spark:SetSize(IW, SP_H + 16)
+  local lastK
+  for k = 1, SP_N do if vals[k] then lastK = k end end
+  for k = 1, SP_N do
+    local b = spark.bars[k]
+    if vals[k] then
+      local bh = math.max(2, math.floor(SP_H * vals[k] / mx))
+      b:ClearAllPoints(); b:SetPoint("BOTTOMLEFT", spark, "BOTTOMLEFT", (k - 1) * (bw + gap), 15); b:SetSize(bw, bh)
+      b:SetColorTexture(0.62, 0.82, 1, k == lastK and 0.9 or 0.4); b:Show()
+    else b:Hide() end
+  end
+  local avg = tot / n
+  spark.avgLine:ClearAllPoints(); spark.avgLine:SetPoint("BOTTOMLEFT", spark, "BOTTOMLEFT", 0, 15 + math.floor(SP_H * avg / mx)); spark.avgLine:SetWidth(IW)
+  spark.l1:SetText(T("last4")); spark.l2:SetText(string.format(T("avgW"), money(avg * 3600)))
+  spark:Show()
+  return y - (SP_H + 16) - 10
+end
 
 -- ---------- toast (som LevelETA's advarsel) ----------
 local toast = CreateFrame("Button", "GoldETAToast", UIParent)
@@ -833,7 +944,21 @@ local function refresh()
       y = row(y, {kind = "main", title = goalLabel(),
         value = string.format("%s / %s  |cff5c6270%d%%|r", gold(gi.have), gold(gi.goal), math.floor(gi.frac * 100)), vc = BLUE, frac = gi.frac})
     end
-    y = row(y, {kind = "main", title = T("gph"), value = gi.r and (money(gi.r * 3600) .. T("perHr")) or T("measuring"), vc = WHITE})
+    -- guld i timen: gruen over dit gennemsnit, orange under (sammenlignet med hele din tid)
+    local gTitle, gColor = T("gph"), WHITE
+    if gi.r and DB.life.p >= 1800 and DB.life.c > 0 then
+      local avg = DB.life.c / DB.life.p
+      local d = gi.r / avg - 1
+      if d >= 0.1 then gColor = {0.5, 0.88, 0.55}; gTitle = gTitle .. "  |cff80e08c+" .. math.floor(d * 100 + 0.5) .. "%|r"
+      elseif d <= -0.1 then gColor = ORANGE; gTitle = gTitle .. "  |cffff9959" .. math.floor(d * 100 - 0.5) .. "%|r" end
+    end
+    y = row(y, {kind = "main", title = gTitle, value = gi.r and (money(gi.r * 3600) .. T("perHr")) or T("measuring"), vc = gColor})
+    if DB.compact then
+      if not DB.noGoal then y = row(y, {kind = "main", title = string.format(T("ready"), goalLabel()), value = etaText(gi), vc = GOLD, line = false}) end
+      chip1:Hide(); chip2:Hide(); spark:Hide()
+      y = y - 6
+    else
+    if DB.showSpark then y = drawSpark(y) else spark:Hide() end
     local net = sessNet()
     y = row(y, {kind = "main", title = T("session") .. " " .. dur(sessTime()), value = (net >= 0 and "+" or "") .. money(net),
       vc = net >= 0 and WHITE or ORANGE})
@@ -857,6 +982,7 @@ local function refresh()
     y = y - 16
 
     if DB.showSess or DB.showSpots or DB.showFarms then y = drawDetails(y - 4) end
+    end
     for i = rowN + 1, #rowPool do rowPool[i]:Hide() end
     if f._h ~= y then f._h = y; f:SetHeight(-y + 12) end
     f:Show()
@@ -864,10 +990,11 @@ local function refresh()
 
   -- farm-knappen oeverst
   if DB.run then
+    farmBtn:setSolid(false)
     farmBtn.text:SetText(stopwatch(runTime(DB.run)))
     if DB.run.paused then farmBtn:paint(0.55, 0.58, 0.64) else farmBtn:paint(1, 0.45, 0.4) end
   else
-    farmBtn.text:SetText(T("farm")); farmBtn:paint(1, 0.82, 0.4)
+    farmBtn.text:SetText(T("farm")); farmBtn:setSolid(true)
   end
   if GoldETAMinimapButton then GoldETAMinimapButton:SetShown(DB.showMinimap) end
   if updateFuse then updateFuse() end
@@ -977,7 +1104,11 @@ end
 local function toggleRun() if DB.run then stopRun() else startRun() end end
 GoldETA_ToggleFarm = function() if DB then toggleRun() end end  -- til keybind
 
+f:SetScript("OnMouseUp", function(_, btn)
+  if btn == "RightButton" and DB then DB.compact = not DB.compact; refresh() end
+end)
 farmBtn:SetScript("OnClick", toggleRun)
+charsBtn:SetScript("OnClick", function() CH.toggle() end)
 runStop:SetScript("OnClick", stopRun)
 runPause:SetScript("OnClick", function() if DB.run then DB.run.paused = not DB.run.paused; refresh() end end)
 
@@ -1433,6 +1564,7 @@ section(-92, "winSec")
 toggle(-114, "showWin", function() return not DB.hidden end, function(v) DB.hidden = not v end)
 toggle(-142, "lock", function() return DB.locked end, function(v) DB.locked = v end)
 toggle(-170, "showMinimap", function() return DB.showMinimap end, function(v) DB.showMinimap = v end)
+toggle(-254, "compactW", function() return DB.compact end, function(v) DB.compact = v end)
 slider(-202, "size", 0.6, 2.0, 0.05, function() return f._scale or DB.scale end, function(v) DB.scale = v; DB.scaleFollow = false end, pctFmt)
 colX = COL
 section(-92, "detailSec")
@@ -1441,6 +1573,7 @@ toggle(-142, "showSpots", function() return DB.showSpots end, function(v) DB.sho
 toggle(-170, "showFarms", function() return DB.showFarms end, function(v) DB.showFarms = v end)
 toggle(-198, "fuse", function() return DB.fuse end, function(v) DB.fuse = v end)
 toggle(-226, "countBags", function() return DB.countBags end, function(v) DB.countBags = v end)
+toggle(-254, "sparkW", function() return DB.showSpark end, function(v) DB.showSpark = v end)
 
 -- fane 2: maal
 host = pages[2]
@@ -1515,7 +1648,7 @@ S:SetScript("OnShow", function()
   if type(LevelETASettings) == "table" and LevelETASettings.IsShown and LevelETASettings:IsShown() then LevelETASettings:Hide() end
   updateLabels()
   status(leDot, leText, LE() ~= nil, "leFound", "leMissing")
-  status(aucDot, aucText, aucLoaded() and true or false, auxOK() and "auxFound" or "aucFound", "aucMissing")
+  status(aucDot, aucText, aucLoaded() and true or false, amOK() and "amFound" or (auxOK() and "auxFound" or "aucFound"), "aucMissing")
   for _, c in ipairs(controls) do c.load() end
   showTab(DB.tab or 1)
 end)
@@ -1526,6 +1659,66 @@ toggleWindow = function()
   if DB.hidden then f:Hide() else refresh() end
   if S:IsShown() then for _, c in ipairs(controls) do c.load() end end
 end
+end
+
+-- ---------- karakterer: guld, guld i timen og maal for alle dine karakterer ----------
+do
+  local ROWS, RH = 14, 22
+  local c = CreateFrame("Frame", "GoldETACharacters", UIParent)
+  c:SetSize(330, 120); c:SetPoint("CENTER", 0, 60); c:SetFrameStrata("DIALOG"); c:Hide()
+  skin(c, "Panel", 520, 1024)
+  movable(c, function() return true end)
+  c:SetScript("OnDragStop", c.StopMovingOrSizing)
+  tinsert(UISpecialFrames, "GoldETACharacters")
+  label(header(c), "charsTitle")
+  local cx = CreateFrame("Button", nil, c)
+  cx:SetSize(20, 20); cx:SetPoint("TOPRIGHT", -10, -10)
+  local cxT = fs(cx, F_BOLD, 16); cxT:SetPoint("CENTER"); cxT:SetText("×"); cxT:SetTextColor(0.55, 0.58, 0.64)
+  cx:SetScript("OnEnter", function() cxT:SetTextColor(1, 1, 1) end)
+  cx:SetScript("OnLeave", function() cxT:SetTextColor(0.55, 0.58, 0.64) end)
+  cx:SetScript("OnClick", function() c:Hide() end)
+  local total = fs(c, F_BOLD, 12); total:SetPoint("TOPRIGHT", -36, -14); total:SetJustifyH("RIGHT")
+  local rows = {}
+  for i = 1, ROWS do
+    local r = {}
+    r.name = fs(c, F_SEMI, 12); r.name:SetPoint("TOPLEFT", 14, -48 - (i - 1) * RH); r.name:SetWidth(110); r.name:SetJustifyH("LEFT")
+    r.m = fs(c, F_BOLD, 12); r.m:SetPoint("TOPRIGHT", -112, -48 - (i - 1) * RH); r.m:SetJustifyH("RIGHT")
+    r.r = fs(c, F_SEMI, 11); r.r:SetPoint("TOPRIGHT", -14, -49 - (i - 1) * RH); r.r:SetJustifyH("RIGHT")
+    r.line = c:CreateTexture(nil, "ARTWORK"); r.line:SetHeight(1); r.line:SetColorTexture(1, 1, 1, 0.05)
+    r.line:SetPoint("TOPLEFT", 14, -48 - (i - 1) * RH - 18); r.line:SetPoint("TOPRIGHT", -14, -48 - (i - 1) * RH - 18)
+    rows[i] = r
+  end
+  local foot = fs(c, F_SEMI, 11); foot:SetTextColor(0.55, 0.58, 0.64)
+  CH.draw = function()
+    if not (DB and ADB) then return end
+    local list, sum = {}, 0
+    for _, x in pairs(ADB.chars) do list[#list + 1] = x; sum = sum + (x.m or 0) end
+    table.sort(list, function(a, b) return (a.m or 0) > (b.m or 0) end)
+    local me = UnitName("player")
+    local n = math.min(ROWS, #list)
+    local enough = 0
+    for i = 1, ROWS do
+      local r, x = rows[i], list[i]
+      if x then
+        local cc = RAID_CLASS_COLORS and x.class and RAID_CLASS_COLORS[x.class]
+        r.name:SetText((x.name or "?") .. (x.name == me and "  |cff5c6270*|r" or ""))
+        if cc then r.name:SetTextColor(cc.r, cc.g, cc.b) else r.name:SetTextColor(0.85, 0.87, 0.92) end
+        r.m:SetText(money(x.m or 0)); r.m:SetTextColor(1, 1, 1)
+        local gh = x.r and x.r > 0 and money(x.r * 3600) .. T("perHr") or "|cff5c6270-|r"
+        r.r:SetText(gh); r.r:SetTextColor(0.62, 0.82, 1)
+        r.name:Show(); r.m:Show(); r.r:Show(); r.line:Show()
+        if not DB.noGoal and (x.m or 0) >= DB.goal then enough = enough + 1 end
+      else r.name:Hide(); r.m:Hide(); r.r:Hide(); r.line:Hide() end
+    end
+    total:SetText("|cff8c94a3" .. T("charsTotal") .. "|r " .. money(sum)); total:SetTextColor(1, 0.82, 0.29)
+    foot:ClearAllPoints(); foot:SetPoint("TOPLEFT", 14, -48 - math.max(n, 1) * RH - 6)
+    if n <= 1 then foot:SetText(T("charsNone"))
+    elseif DB.noGoal then foot:SetText("")
+    else foot:SetText(string.format(T("charsEnough"), enough, #list, gold(DB.goal))) end
+    c:SetHeight(48 + math.max(n, 1) * RH + 34)
+  end
+  c:SetScript("OnShow", CH.draw)
+  CH.toggle = function() c:SetShown(not c:IsShown()) end
 end
 
 -- ---------- minimap-knap ----------
@@ -1589,6 +1782,7 @@ mmb:SetScript("OnEnter", function(self)
   GameTooltip:AddLine(T("tipLeft"), 0.6, 0.6, 0.6)
   GameTooltip:AddLine(T("tipRight"), 0.6, 0.6, 0.6)
   GameTooltip:AddLine(T("tipShift"), 0.6, 0.6, 0.6)
+  GameTooltip:AddLine(T("tipCompact"), 0.6, 0.6, 0.6)
   GameTooltip:Show()
 end)
 mmb:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1833,7 +2027,7 @@ E:SetScript("OnEvent", function(_, event, a1, a2)
 end)
 
 -- ---------- uret: et tik i sekundet, intet arbejde i hvert billede ----------
-local acc = 0
+local acc, histAcc = 0, 0
 -- Forever skjuler nogle svar for addons ("secret values"): et skjult ja/nej maa ikke testes direkte,
 -- saa her bliver det til false, og tiden taeller videre som normalt
 local function yes(fn, unit)
@@ -1862,6 +2056,19 @@ local function tick(el)
   end
   local r = DB.run
   if r and not r.paused then r.t = r.t + el end
+  histAcc = histAcc + el
+  if histAcc >= 120 then  -- hvert andet minut: gem tempoet til mini grafen og til karakter-listen
+    histAcc = 0
+    local r = rate()
+    if r and r > 0 then
+      DB.hist = DB.hist or {}
+      DB.hist[#DB.hist + 1] = {time(), r}
+      while #DB.hist > 130 do table.remove(DB.hist, 1) end
+      local key = (GetRealmName and GetRealmName() or "") .. "-" .. (UnitName("player") or "")
+      local ch = ADB and ADB.chars[key]
+      if ch then ch.r = r end
+    end
+  end
   acc = acc + el
   if f:IsShown() then
     if r or acc >= 5 then acc = 0; refresh() end
@@ -1889,6 +2096,8 @@ SlashCmdList.GOLDETA = function(msg)
   if msg == "farm" then toggleRun()
   elseif msg == "show" or msg == "vis" then toggleWindow()
   elseif msg == "graph" or msg == "graf" then G.toggle()
+  elseif msg == "chars" or msg == "karakterer" then CH.toggle()
+  elseif msg == "compact" or msg == "kompakt" then DB.compact = not DB.compact; refresh()
   elseif msg == "log" then
     local fl = farmList()
     print("|cffffd24a" .. T("logHead") .. "|r")
