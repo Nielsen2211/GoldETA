@@ -425,6 +425,18 @@ local function layer(frame, noMouse)
   if not noMouse then frame:EnableMouse(true); frame:HookScript("OnMouseDown", function(self) self:Raise() end) end
 end
 
+-- de store vinduer (graf, indstillinger, karakterer) staar samme sted: kun et ad gangen er aabent,
+-- saa tekst fra to vinduer aldrig blandes
+local DIALOGS = { "GoldETAGraph", "GoldETASettings", "GoldETACharacters" }
+local function solo(frame)
+  frame:HookScript("OnShow", function(self)
+    for _, n in ipairs(DIALOGS) do
+      local o = _G[n]
+      if o and o ~= self and o:IsShown() then o:Hide() end
+    end
+  end)
+end
+
 local function skin(frame, prefix, texW, canvasW)
   layer(frame)
   local top = frame:CreateTexture(nil, "BACKGROUND")
@@ -610,9 +622,9 @@ local function style(c, kind)
   elseif kind == "bar" or kind == "barNow" then
     local big = kind == "barNow"
     c.title:SetFont(big and F_BOLD or F_SEMI, big and 13 or 11); c.value:SetFont(F_BOLD, big and 14 or 12)
-    c.title:SetPoint("LEFT"); c.title:SetWidth(98)
+    c.title:SetPoint("LEFT"); c.title:SetWidth(106)
     c.value:SetPoint("RIGHT")
-    c.track:SetPoint("LEFT", 104, 0); c.track:SetPoint("RIGHT", -74, 0)
+    c.track:SetPoint("LEFT", 112, 0); c.track:SetPoint("RIGHT", -74, 0)
     c.track:SetHeight(big and 6 or 4); c.fill:SetHeight(big and 6 or 4)
     c.track:SetColorTexture(1, 1, 1, 0.06)
   elseif kind == "small" then
@@ -698,7 +710,8 @@ local function drawSpark(y)
   local sums, cnt, now, filled = {}, {}, time(), 0
   if h then
     for _, p in ipairs(h) do
-      local k = SP_N - math.floor((now - p[1]) / SP_SPAN)
+      -- aeldre versioner gemte {t =, m =}: dem springer vi over
+      local k = (type(p) == "table" and type(p[1]) == "number" and type(p[2]) == "number") and (SP_N - math.floor((now - p[1]) / SP_SPAN)) or 0
       if k >= 1 and k <= SP_N then
         if not cnt[k] then filled = filled + 1 end
         sums[k] = (sums[k] or 0) + p[2]; cnt[k] = (cnt[k] or 0) + 1
@@ -1009,7 +1022,6 @@ local function refresh()
       y = y - 18
 
       if view == "more" then
-        local ok, err = pcall(function()
         local net = sessNet()
         y = row(y, {kind = "main", title = T("session") .. " " .. dur(sessTime()), value = (net >= 0 and "+" or "") .. money(net),
           vc = net >= 0 and WHITE or ORANGE})
@@ -1034,12 +1046,6 @@ local function refresh()
         logBtn:ClearAllPoints(); logBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 14, y); logBtn:SetSize(bw, 20); logBtn:Show()
         setBtn:ClearAllPoints(); setBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -14, y); setBtn:SetSize(bw, 20); setBtn:Show()
         y = y - 26
-        end)
-        if not ok and not f._errShown then
-          f._errShown = true
-          print("|cffffd24aGoldETA|r: " .. tostring(err))
-          y = y - 40
-        end
       end
     end
     f:SetHeight(-y + 12)
@@ -1232,7 +1238,7 @@ do
   local GW, X0, CW, CH, TOPY = 520, 64, 230, 200, -112
   local g = CreateFrame("Frame", "GoldETAGraph", UIParent)
   g:SetSize(GW, 362); g:SetPoint("CENTER"); g:SetFrameStrata("HIGH"); g:Hide()
-  skin(g, "Wide", 1040, 2048)
+  skin(g, "Wide", 1040, 2048); solo(g)
   movable(g, function() return true end)
   g:SetScript("OnDragStop", g.StopMovingOrSizing)
   tinsert(UISpecialFrames, "GoldETAGraph")
@@ -1546,7 +1552,7 @@ do
 local SW, COL = 520, 260
 S = CreateFrame("Frame", "GoldETASettings", UIParent)
 S:SetSize(SW, 430); S:SetPoint("CENTER"); S:SetFrameStrata("HIGH"); S:Hide()
-skin(S, "Wide", 1040, 2048)
+skin(S, "Wide", 1040, 2048); solo(S)
 movable(S, function() return true end)
 S:SetScript("OnDragStop", S.StopMovingOrSizing)
 tinsert(UISpecialFrames, "GoldETASettings")
@@ -1754,7 +1760,7 @@ do
   local ROWS, RH = 14, 22
   local c = CreateFrame("Frame", "GoldETACharacters", UIParent)
   c:SetSize(330, 120); c:SetPoint("CENTER", 0, 60); c:SetFrameStrata("HIGH"); c:Hide()
-  skin(c, "Panel", 520, 1024)
+  skin(c, "Panel", 520, 1024); solo(c)
   movable(c, function() return true end)
   c:SetScript("OnDragStop", c.StopMovingOrSizing)
   tinsert(UISpecialFrames, "GoldETACharacters")
@@ -2056,6 +2062,12 @@ E:SetScript("OnEvent", function(_, event, a1, a2)
       DB = GoldETADB
       if DB.showSess == nil and DB.showDetails then DB.showSess, DB.showSpots, DB.showFarms = true, true, true end
       for k, v in pairs(defaults) do if DB[k] == nil then DB[k] = v end end
+      -- gamle mini graf punkter ({t =, m =}) fra foer 3.1 kan ikke tegnes: fjern dem
+      if type(DB.hist) == "table" then
+        local keep = {}
+        for _, p in ipairs(DB.hist) do if type(p) == "table" and type(p[1]) == "number" and type(p[2]) == "number" then keep[#keep + 1] = p end end
+        DB.hist = keep
+      end
       -- foerste gang (eller opgraderet fra foer 3.2): start lille. Visningen huskes pr. karakter.
       if DB.view == nil then DB.view = DB.compact and not DB.simple and "line" or "micro" end
       if not DB.farms then  -- foerste gang: byg farm-loggen ud fra de runs der allerede er gemt
